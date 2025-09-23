@@ -1,6 +1,7 @@
 import { OpenAPIV2 } from 'openapi-types'
 import { renameBrokenFieldBackToFormAgain } from './removeAndRename'
 import { normalizeValuesForQuotasToNumber } from './normalizeQuotas'
+import { processMultilineInYaml } from './multilineHandler'
 
 export const onYamlChange = ({
   values,

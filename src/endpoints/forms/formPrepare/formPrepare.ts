@@ -15,6 +15,7 @@ export const prepareFormProps: RequestHandler = async (req: TPrepareFormReq, res
 
     const filteredHeaders = { ...req.headers }
     delete filteredHeaders['host'] // Avoid passing internal host header
+    delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
 
     const { data: formsOverridesData } = await userKubeApi.get<TFormsOverridesData>(
       `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/customformsoverrides`,

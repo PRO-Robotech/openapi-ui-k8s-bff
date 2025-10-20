@@ -40,6 +40,7 @@ export const toFlatRecords = (entry: {
         preferred: entry.preferred,
         namespaced: r.namespaced,
         resource: r.name,
+        verbs: r.verbs,
       },
     }),
   )
@@ -69,6 +70,7 @@ export const toItems = (grouped: Readonly<Record<string, TFlatRecord['value'][]>
               preferred: v.preferred,
               namespaced: v.namespaced,
               resource: v.resource,
+              verbs: v.verbs,
             }) as const,
         )
         .sort(sortVersions)

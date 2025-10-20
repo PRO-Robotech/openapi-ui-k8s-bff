@@ -40,10 +40,32 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
         type: 'string',
         jsonPath: '.metadata.name',
       },
+      ...(req.body.namespaceScopedWithoutNamespace
+        ? [
+            {
+              name: 'Namespace',
+              type: 'string',
+              jsonPath: '.metadata.namespace',
+            },
+          ]
+        : []),
       {
-        name: 'Timestamp',
-        type: 'string',
+        name: 'Created',
+        type: 'factory',
         jsonPath: '.metadata.creationTimestamp',
+        customProps: {
+          disableEventBubbling: true,
+          items: [
+            {
+              type: 'parsedText',
+              data: {
+                id: 'created-timestamp',
+                text: "{reqsJsonPath[0]['.metadata.creationTimestamp']['-']}",
+                formatter: 'timestamp',
+              },
+            },
+          ],
+        },
       },
     ]
 
@@ -70,10 +92,33 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
 
     const result: TPrepareTableRes = {
       additionalPrinterColumns: ensuredCustomOverrides || additionalPrinterColumns,
-      additionalPrinterColumnsUndefinedValues: ensuredCustomOverridesUndefinedValues,
-      additionalPrinterColumnsTrimLengths: ensuredCustomOverridesTrimLengths,
+      additionalPrinterColumnsUndefinedValues: [
+        { key: 'Namespace', value: '-' },
+        ...(ensuredCustomOverridesUndefinedValues || []),
+      ],
+      additionalPrinterColumnsTrimLengths: [{ key: 'Name', value: 64 }, ...(ensuredCustomOverridesTrimLengths || [])],
       additionalPrinterColumnsColWidths: ensuredCustomOverridesColWidths,
-      additionalPrinterColumnsKeyTypeProps: ensuredCustomOverridesKeyTypeProps,
+      additionalPrinterColumnsKeyTypeProps: ensuredCustomOverrides
+        ? ensuredCustomOverridesKeyTypeProps
+        : {
+            ...(req.body.namespaceScopedWithoutNamespace && { Namespace: { type: 'string' } }),
+            Created: {
+              type: 'factory',
+              customProps: {
+                disableEventBubbling: true,
+                items: [
+                  {
+                    type: 'parsedText',
+                    data: {
+                      id: 'created-timestamp',
+                      text: "{reqsJsonPath[0]['.metadata.creationTimestamp']['-']}",
+                      formatter: 'timestamp',
+                    },
+                  },
+                ],
+              },
+            },
+          },
 
       pathToNavigate: tableMappingSpecific?.pathToNavigate,
       recordKeysForNavigation: tableMappingSpecific?.keysToParse,

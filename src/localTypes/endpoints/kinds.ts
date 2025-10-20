@@ -4,6 +4,7 @@ export type TVersionEntry = Readonly<{
   preferred: boolean
   namespaced: boolean
   resource: string
+  verbs?: string[]
 }>
 
 export type TKindItem = {

@@ -24,7 +24,7 @@ export type TAPIResource = {
   singularName: string
   namespaced: boolean
   kind: string // e.g., "Deployment"
-  verbs?: readonly string[]
+  verbs?: string[]
   shortNames?: readonly string[]
   categories?: readonly string[]
   group?: string
@@ -57,5 +57,6 @@ export type TFlatRecord = {
     preferred: boolean
     namespaced: boolean
     resource: string
+    verbs?: string[]
   }
 }

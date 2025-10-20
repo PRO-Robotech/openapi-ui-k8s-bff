@@ -12,7 +12,13 @@ export type TPrepareTableReq = {
     customizationId?: string
     tableMappingsReplaceValues?: Record<string, string | undefined>
     forceDefaultAdditionalPrinterColumns?: TAdditionalPrinterColumns
-    namespaceScopedWithoutNamespace?: boolean
+    namespace?: string
+    k8sResource?: {
+      resource: string
+      apiGroup?: string
+      apiVersion: string
+    }
+    // namespaceScopedWithoutNamespace?: boolean
   }
 } & THeaders
 

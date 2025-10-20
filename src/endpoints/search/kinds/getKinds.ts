@@ -1,7 +1,8 @@
 import { RequestHandler } from 'express'
 import { TKindIndex } from 'src/localTypes/endpoints/kinds'
 import { kubeApi } from 'src/constants/httpAgent'
-import { TAPIGroupList, TAPIResourceList, TGroupVersionEntry, TAPIResource } from './types'
+import { TAPIGroupList, TAPIResourceList, TAPIResource } from 'src/localTypes/kinds'
+import { TGroupVersionEntry } from './types'
 import { groupByKind, groupToVersionEntries, toFlatRecords, toGroupEntries, toItems } from './utils'
 
 export const getKinds: RequestHandler = async (req, res) => {

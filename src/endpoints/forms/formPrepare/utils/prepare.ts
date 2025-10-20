@@ -2,6 +2,7 @@ import _ from 'lodash'
 import { getClusterSwaggerPathByName, getClusterSwaggerPaths } from 'src/cache'
 import { TPrepareForm } from 'src/localTypes/forms'
 import { TPrepareFormRes } from 'src/localTypes/endpoints/forms'
+import { deepMerge } from 'src/utils/deepMerge'
 import { getSwaggerPathAndIsNamespaceScoped } from './getSwaggerPathAndIsNamespaceScoped'
 import { getBodyParametersSchema } from './getBodyParametersSchema'
 import { processOverride } from './processOverride'
@@ -52,7 +53,7 @@ export const prepare = async ({
   })
 
   const oldProperties = _.cloneDeep(bodyParametersSchema.properties)
-  const newProperties = _.merge(oldProperties, propertiesToMerge)
+  const newProperties = deepMerge(oldProperties, propertiesToMerge)
 
   const specificCustomOverrides = formsOverridesData?.items.find(item => item.spec.customizationId === customizationId)
 

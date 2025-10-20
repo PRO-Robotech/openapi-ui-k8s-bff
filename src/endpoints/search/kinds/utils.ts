@@ -1,4 +1,5 @@
-import { TAPIGroup, TAPIGroupList, TAPIResource, TFlatRecord } from './types'
+import { TAPIGroup, TAPIGroupList, TAPIResource } from 'src/localTypes/kinds'
+import { TFlatRecord } from './types'
 import { TVersionEntry, TKindItem } from 'src/localTypes/endpoints/kinds'
 
 export const toGroupEntries = (groupsList?: TAPIGroupList): TAPIGroup[] => {

@@ -18,12 +18,14 @@ export const processOverride = ({
   hiddenPaths?: string[][]
   expandedPaths?: string[][]
   persistedPaths?: string[][]
+  sortPaths?: string[][]
   propertiesToApply: { [name: string]: OpenAPIV2.SchemaObject }
   requiredToApply?: string[]
 } => {
   let hiddenPaths
   let expandedPaths
   let persistedPaths
+  let sortPaths
   let propertiesToApply = newProperties
   let requiredToApply
 
@@ -38,6 +40,10 @@ export const processOverride = ({
 
     if (specificCustomOverrides.spec.persisted) {
       persistedPaths = specificCustomOverrides.spec.persisted
+    }
+
+    if (specificCustomOverrides.spec.sort) {
+      sortPaths = specificCustomOverrides.spec.sort
     }
 
     // full replace
@@ -101,5 +107,5 @@ export const processOverride = ({
     requiredToApply = bodyParametersSchema.required
   }
 
-  return { hiddenPaths, expandedPaths, persistedPaths, propertiesToApply, requiredToApply }
+  return { hiddenPaths, expandedPaths, persistedPaths, sortPaths, propertiesToApply, requiredToApply }
 }

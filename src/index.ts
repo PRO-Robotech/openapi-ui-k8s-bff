@@ -26,6 +26,7 @@ import {
 } from 'src/endpoints/terminal'
 import { getKinds } from 'src/endpoints/search'
 import { getEvents, eventsWebSocket } from 'src/endpoints/events'
+import { listWatchWebSocket } from 'src/endpoints/listThenWatch'
 import { getClusterSwagger } from './cache'
 
 dotenv.config()
@@ -113,6 +114,9 @@ app.get(`${BASEPREFIX}/openapi-bff/evets/events/getKinds`, getEvents)
 
 /* events: ws */
 app.ws(`${BASEPREFIX}/openapi-bff-ws/events/eventsWs`, eventsWebSocket)
+
+/* list-then-watch: ws */
+app.ws(`${BASEPREFIX}/openapi-bff-ws/listThenWatch/listWatchWebSocket`, eventsWebSocket)
 
 app.listen(port, () => {
   console.log(`[server]: Server is running at port: ${port}`)

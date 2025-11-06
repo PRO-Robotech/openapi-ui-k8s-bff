@@ -159,6 +159,9 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     delete filteredHeaders['host'] // Avoid passing internal host header
     delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
 
+    delete filteredHeaders['upgrade'] // This header causes "stream has been aborted"
+    delete filteredHeaders['connection'] // This header causes "stream has been aborted"
+
     Object.keys(filteredHeaders).forEach(key => {
       if (key.startsWith('sec-websocket-')) {
         delete filteredHeaders[key]

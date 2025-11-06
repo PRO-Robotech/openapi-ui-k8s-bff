@@ -2,7 +2,8 @@ import WebSocket from 'ws'
 import { AxiosRequestConfig } from 'axios'
 import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT } from 'src/constants/envs'
-import { httpsAgent, baseUrl, userKubeApi } from 'src/constants/httpAgent'
+import { baseUrl, userKubeApi } from 'src/constants/httpAgent'
+import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 
 export type TMessage = {
   type: string
@@ -103,17 +104,7 @@ export const startLogPolling = (
 export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) => {
   console.log(`[${new Date().toISOString()}]: Websocket: Client connected to WebSocket server`)
 
-  const filteredHeaders = { ...req.headers }
-  delete filteredHeaders['host'] // Avoid passing internal host header
-  delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
-
-  Object.keys(filteredHeaders).forEach(key => {
-    if (key.startsWith('sec-websocket-')) {
-      delete filteredHeaders[key]
-    }
-  })
-  delete filteredHeaders['connection']
-  delete filteredHeaders['upgrade']
+  const filteredHeaders = filterHeadersFromEnv(req)
 
   console.log(`[${new Date().toISOString()}]: Websocket: Filtered Headers: ${JSON.stringify(filteredHeaders)}`)
 

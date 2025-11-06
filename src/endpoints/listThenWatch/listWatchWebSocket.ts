@@ -6,6 +6,7 @@ import * as k8s from '@kubernetes/client-node'
 import { createUserKubeClient } from 'src/constants/kubeClients'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { userKubeApi } from 'src/constants/httpAgent'
+import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 
 type TWatchPhase = 'ADDED' | 'MODIFIED' | 'DELETED' | 'BOOKMARK'
 
@@ -65,8 +66,7 @@ const safeDecode = (s?: string) => {
 export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket, req: Request) => {
   console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection (list-then-watch)`)
 
-  const headers: Record<string, string | string[] | undefined> = { ...(req.headers || {}) }
-  delete headers['host']
+  const headers: Record<string, string | string[] | undefined> = filterHeadersFromEnv(req)
 
   const reqUrl = new URL(req.url || '', `http://${req.headers.host}`)
   const namespace = reqUrl.searchParams.get('namespace') || undefined
@@ -155,18 +155,7 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
   }) => {
     console.log(`[${new Date().toISOString()}]: Listing page`, { limit, _continue, captureRV, lastRV })
 
-    const filteredHeaders = { ...req.headers }
-    delete filteredHeaders['host'] // Avoid passing internal host header
-    delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
-
-    delete filteredHeaders['upgrade'] // This header causes "stream has been aborted"
-    delete filteredHeaders['connection'] // This header causes "stream has been aborted"
-
-    Object.keys(filteredHeaders).forEach(key => {
-      if (key.startsWith('sec-websocket-')) {
-        delete filteredHeaders[key]
-      }
-    })
+    const filteredHeaders = filterHeadersFromEnv(req)
 
     const qs = buildListQS({
       limit,

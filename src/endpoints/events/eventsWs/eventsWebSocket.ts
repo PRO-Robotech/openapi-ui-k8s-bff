@@ -4,6 +4,7 @@ import WebSocket from 'ws'
 import { WebsocketRequestHandler } from 'express-ws'
 import * as k8s from '@kubernetes/client-node'
 import { createUserKubeClient } from 'src/constants/kubeClients'
+import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { eventSortKey } from './utils'
 
 type TWatchPhase = 'ADDED' | 'MODIFIED' | 'DELETED' | 'BOOKMARK'
@@ -47,8 +48,7 @@ const getJoinedParam = (url: URL, key: string): string | undefined => {
 export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, req: Request) => {
   console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection for events`)
 
-  const headers: Record<string, string | string[] | undefined> = { ...(req.headers || {}) }
-  delete headers['host']
+  const headers: Record<string, string | string[] | undefined> = filterHeadersFromEnv(req)
 
   const reqUrl = new URL(req.url || '', `http://${req.headers.host}`)
   const namespace = reqUrl.searchParams.get('namespace') || undefined

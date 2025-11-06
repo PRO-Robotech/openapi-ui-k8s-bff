@@ -20,3 +20,5 @@ export const BASE_FACTORY_CLUSTERSCOPED_BUILTIN_KEY = process.env.BASE_FACTORY_C
 export const BASE_NAMESPACE_FACTORY_KEY = process.env.BASE_NAMESPACE_FACTORY_KEY
 
 export const BASE_NAMESPACE_FULL_PATH = process.env.BASE_NAMESPACE_FULL_PATH || '/api/v1/namespaces'
+
+export const BASE_ALLOWED_AUTH_HEADERS = process.env.BASE_ALLOWED_AUTH_HEADERS || ''

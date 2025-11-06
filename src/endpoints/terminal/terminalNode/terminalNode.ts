@@ -3,6 +3,7 @@ import WebSocket from 'ws'
 import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT, DEBUG_CONTAINER_IMAGE } from 'src/constants/envs'
 import { httpsAgent, baseUrl, userKubeApi } from 'src/constants/httpAgent'
+import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { generateRandomLetters, getNamespaceBody, getPodByProfile, waitForContainerReady } from './utils'
 import { SHUTDOWN_MESSAGES, WARMUP_MESSAGES } from './constants'
 
@@ -14,15 +15,7 @@ export type TMessage = {
 export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) => {
   console.log(`[${new Date().toISOString()}]: Websocket: Client connected to WebSocket server`)
 
-  const filteredHeaders = { ...req.headers }
-  delete filteredHeaders['host'] // Avoid passing internal host header
-  delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
-
-  Object.keys(filteredHeaders).forEach(key => {
-    if (key.startsWith('sec-websocket-')) {
-      delete filteredHeaders[key]
-    }
-  })
+  const filteredHeaders = filterHeadersFromEnv(req)
 
   try {
     const handleInit = async (message: TMessage) => {

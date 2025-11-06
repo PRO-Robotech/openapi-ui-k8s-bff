@@ -1,11 +1,10 @@
 import { RequestHandler } from 'express'
 import { createUserKubeClient } from 'src/constants/kubeClients'
+import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 
 export const getEvents: RequestHandler = async (req, res) => {
   try {
-    const filteredHeaders = { ...req.headers }
-    delete filteredHeaders['host'] // Avoid passing internal host header
-    delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
+    const filteredHeaders = filterHeadersFromEnv(req)
 
     const userKubeClient = createUserKubeClient(filteredHeaders)
 

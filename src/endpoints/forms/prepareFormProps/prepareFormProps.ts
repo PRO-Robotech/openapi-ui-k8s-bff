@@ -1,10 +1,11 @@
-import { RequestHandler } from 'express'
+import { Request, RequestHandler } from 'express'
 import _ from 'lodash'
 import { TPrepareFormReq, TPrepareFormRes } from 'src/localTypes/endpoints/forms'
 import { TFormsOverridesData, TFormsPrefillsData } from 'src/localTypes/formExtensions'
 import { TBuiltinResources } from 'src/localTypes/k8s'
 import { DEVELOPMENT, BASE_API_GROUP, BASE_API_VERSION, BASE_NAMESPACE_FULL_PATH } from 'src/constants/envs'
 import { userKubeApi } from 'src/constants/httpAgent'
+import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { prepare } from './utils/prepare'
 // import { getTokenFromCookie } from 'src/utils/getTokenFromCookie'
 
@@ -13,9 +14,7 @@ export const prepareFormProps: RequestHandler = async (req: TPrepareFormReq, res
     // const bearerToken = getTokenFromCookie(req)
     // const cookies = req.headers.cookie
 
-    const filteredHeaders = { ...req.headers }
-    delete filteredHeaders['host'] // Avoid passing internal host header
-    delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
+    const filteredHeaders = filterHeadersFromEnv(req as Request)
 
     const { data: formsOverridesData } = await userKubeApi.get<TFormsOverridesData>(
       `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/customformsoverrides`,

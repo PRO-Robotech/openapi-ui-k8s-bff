@@ -116,7 +116,7 @@ app.get(`${BASEPREFIX}/openapi-bff/evets/events/getKinds`, getEvents)
 app.ws(`${BASEPREFIX}/openapi-bff-ws/events/eventsWs`, eventsWebSocket)
 
 /* list-then-watch: ws */
-app.ws(`${BASEPREFIX}/openapi-bff-ws/listThenWatch/listWatchWebSocket`, eventsWebSocket)
+app.ws(`${BASEPREFIX}/openapi-bff-ws/listThenWatch/listWatchWs`, listWatchWebSocket)
 
 app.listen(port, () => {
   console.log(`[server]: Server is running at port: ${port}`)

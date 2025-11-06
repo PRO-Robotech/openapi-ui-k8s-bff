@@ -51,14 +51,6 @@ const getJoinedParam = (url: URL, key: string): string | undefined => {
   return values.join(',')
 }
 
-/** Generic sort: newest by creationTimestamp, then by numeric resourceVersion (desc) */
-const genericSortKey = (obj: { metadata?: { creationTimestamp?: string; resourceVersion?: string } }): number => {
-  const ts = obj.metadata?.creationTimestamp ? Date.parse(obj.metadata.creationTimestamp) : 0
-  const rv = obj.metadata?.resourceVersion ? Number(obj.metadata.resourceVersion) : 0
-  // Combine so primary key is timestamp (newest first), tie-breaker is RV
-  return ts * 1e6 + rv
-}
-
 export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket, req: Request) => {
   console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection (list-then-watch)`)
 
@@ -78,7 +70,7 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
 
   if (!apiVersion || !plural) {
     // Fail fast; you can also choose to send an error frame instead
-    ws.close(1008, 'apiVersion and resource are required')
+    ws.close(1008, 'apiVersion and plural are required')
     return
   }
 
@@ -150,18 +142,6 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
   }) => {
     console.log(`[${new Date().toISOString()}]: Listing page`, { limit, _continue, captureRV, lastRV })
 
-    const baseOpts: k8s.EventsV1ApiListEventForAllNamespacesRequest = {
-      fieldSelector,
-      labelSelector,
-      limit: typeof limit === 'number' ? limit : undefined,
-      _continue,
-    }
-
-    if (!_continue && lastRV) {
-      baseOpts.resourceVersion = lastRV
-      baseOpts.resourceVersionMatch = 'NotOlderThan'
-    }
-
     const filteredHeaders = { ...req.headers }
     delete filteredHeaders['host'] // Avoid passing internal host header
     delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
@@ -185,7 +165,14 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     const items: any[] = Array.isArray(body.items) ? body.items : []
 
     // Sorting:
-    items.sort((a, b) => genericSortKey(b) - genericSortKey(a))
+    items.sort((a, b) => {
+      const ta = a.metadata?.creationTimestamp ? Date.parse(a.metadata.creationTimestamp) : 0
+      const tb = b.metadata?.creationTimestamp ? Date.parse(b.metadata.creationTimestamp) : 0
+      if (tb !== ta) return tb - ta
+      const rva = Number(a.metadata?.resourceVersion ?? 0)
+      const rvb = Number(b.metadata?.resourceVersion ?? 0)
+      return rvb - rva
+    })
 
     const meta = body.metadata || {}
     console.log(`[${new Date().toISOString()}]: List page received`, {

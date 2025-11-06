@@ -51,6 +51,17 @@ const getJoinedParam = (url: URL, key: string): string | undefined => {
   return values.join(',')
 }
 
+const safeDecode = (s?: string) => {
+  if (!s) return undefined
+  try {
+    const once = decodeURIComponent(s)
+    // If decoding still leaves encoded chars, try one more time
+    return once.includes('%') ? decodeURIComponent(once) : once
+  } catch {
+    return s // not encoded; leave as-is
+  }
+}
+
 export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket, req: Request) => {
   console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection (list-then-watch)`)
 
@@ -64,8 +75,10 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
   const apiGroup = reqUrl.searchParams.get('apiGroup') || undefined // empty or undefined => core
   const apiVersion = reqUrl.searchParams.get('apiVersion') || ''
   const plural = reqUrl.searchParams.get('plural') || ''
-  const fieldSelector = getJoinedParam(reqUrl, 'fieldSelector') ?? getJoinedParam(reqUrl, 'field')
-  const labelSelector = getJoinedParam(reqUrl, 'labelSelector') ?? getJoinedParam(reqUrl, 'labels')
+  const fieldSelectorRaw = getJoinedParam(reqUrl, 'fieldSelector') ?? getJoinedParam(reqUrl, 'field')
+  const labelSelectorRaw = getJoinedParam(reqUrl, 'labelSelector') ?? getJoinedParam(reqUrl, 'labels')
+  const fieldSelector = safeDecode(fieldSelectorRaw)
+  const labelSelector = safeDecode(labelSelectorRaw)
   const sinceRV = reqUrl.searchParams.get('sinceRV') || undefined
 
   if (!apiVersion || !plural) {

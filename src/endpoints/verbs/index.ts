@@ -1,0 +1,1 @@
+export { getResourceVerbs } from './getResourceVerbs'

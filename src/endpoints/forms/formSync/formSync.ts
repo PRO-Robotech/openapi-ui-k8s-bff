@@ -8,7 +8,18 @@ export const getYamlValuesByFromValues: RequestHandler = async (req: TYamlByValu
     const result: TYamlByValuesRes = onValuesChange(req.body)
     res.json(result)
   } catch (error) {
-    res.status(500).json(error)
+    console.error('[getYamlValuesByFromValues] Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error,
+      body: req.body,
+    })
+
+    const errorResponse = {
+      error: error instanceof Error ? error.message : String(error),
+      ...(process.env.DEVELOPMENT === 'TRUE' && error instanceof Error ? { stack: error.stack } : {}),
+    }
+    res.status(500).json(errorResponse)
   }
 }
 
@@ -17,6 +28,17 @@ export const getFormValuesByYaml: RequestHandler = async (req: TValuesByYamlReq,
     const result: TValuesByYamlRes = onYamlChange(req.body)
     res.json(result)
   } catch (error) {
-    res.status(500).json(error)
+    console.error('[getFormValuesByYaml] Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error,
+      body: req.body,
+    })
+
+    const errorResponse = {
+      error: error instanceof Error ? error.message : String(error),
+      ...(process.env.DEVELOPMENT === 'TRUE' && error instanceof Error ? { stack: error.stack } : {}),
+    }
+    res.status(500).json(errorResponse)
   }
 }

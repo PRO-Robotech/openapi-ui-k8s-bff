@@ -1,0 +1,1 @@
+export { prepareTableProps } from './prepareTableProps'

@@ -1,5 +1,3 @@
-import { OpenAPIV2 } from 'openapi-types'
-
 export const checkIfApiInstanceNamespaceScoped = ({
   typeName,
   apiGroup,

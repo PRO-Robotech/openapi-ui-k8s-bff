@@ -1,0 +1,1 @@
+export { getDerefedSwagger } from './getDerefedSwagger'

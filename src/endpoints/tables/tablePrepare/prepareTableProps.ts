@@ -16,6 +16,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
   try {
     const filteredHeaders = { ...req.headers }
     delete filteredHeaders['host'] // Avoid passing internal host header
+    delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
 
     const { data: customcolumnsoverrides } = await userKubeApi.get<TApiResources>(
       `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/customcolumnsoverrides`,
@@ -127,6 +128,17 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
 
     res.json(result)
   } catch (error) {
-    res.status(500).json(error)
+    console.error('[prepareTableProps] Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error,
+      body: req.body,
+    })
+
+    const errorResponse = {
+      error: error instanceof Error ? error.message : String(error),
+      ...(process.env.DEVELOPMENT === 'TRUE' && error instanceof Error ? { stack: error.stack } : {}),
+    }
+    res.status(500).json(errorResponse)
   }
 }

@@ -2,28 +2,31 @@ import express, { Express } from 'express'
 import bodyParser from 'body-parser'
 import dotenv from 'dotenv'
 import expressWs from 'express-ws'
-const healthcheck = require('express-healthcheck')
-const promBundle = require('express-prom-bundle')
-const metricsMiddleware = promBundle({ includeMethod: true })
-const cors = require('cors')
-const winston = require('winston')
-const expressWinston = require('express-winston')
+import healthcheck from 'express-healthcheck'
+import promMid from 'express-prometheus-middleware'
+import cors from 'cors'
+import winston from 'winston'
+import expressWinston from 'express-winston'
 // const apicache = require('apicache')
 import { BASEPREFIX } from 'src/constants/envs'
-import { getDerefedSwagger } from 'src/endpoints/swagger/getDerefedSwagger/getDerefedSwagger'
-import { getYamlValuesByFromValues, getFormValuesByYaml } from 'src/endpoints/forms/formSync/formSync'
-import { prepareFormProps } from 'src/endpoints/forms/formPrepare/formPrepare'
-import { prepareTableProps } from 'src/endpoints/tables/tablePrepare/tablePrepare'
-import { checkIfApiNamespaceScoped, checkIfBuiltInNamespaceScoped } from 'src/endpoints/scopes/checkScopes/checkScopes'
+import { getDerefedSwagger } from 'src/endpoints/swagger'
+import { prepareFormProps, getYamlValuesByFromValues, getFormValuesByYaml } from 'src/endpoints/forms'
+import { prepareTableProps } from 'src/endpoints/tables'
 import {
+  checkIfApiNamespaceScoped,
+  checkIfBuiltInNamespaceScoped,
   filterIfApiNamespaceScoped,
   filterIfBuiltInNamespaceScoped,
-} from 'src/endpoints/scopes/filterByScope/filterByScope'
-import { terminalPodWebSocket } from 'src/endpoints/terminal/terminalPod/terminalPod'
-import { terminalNodeWebSocket } from 'src/endpoints/terminal/terminalNode/terminalNode'
-import { podLogsWebSocket } from 'src/endpoints/terminal/podLogs/podLogs'
-import { podLogsNonWsWebSocket } from 'src/endpoints/terminal/podLogs/podLogsNonWs'
-import { getKinds } from 'src/endpoints/search/kinds/getKinds'
+} from 'src/endpoints/scopes'
+import {
+  terminalPodWebSocket,
+  terminalNodeWebSocket,
+  podLogsWebSocket,
+  podLogsNonWsWebSocket,
+} from 'src/endpoints/terminal'
+import { getKinds } from 'src/endpoints/search'
+import { getEvents, eventsWebSocket } from 'src/endpoints/events'
+import { getClusterSwagger } from './cache'
 
 dotenv.config()
 
@@ -34,7 +37,11 @@ const { app } = expressWs(nonWsApp)
 const port = process.env.PORT || 3000
 
 app.use('/healthcheck', healthcheck())
-app.use(metricsMiddleware)
+app.use(
+  promMid({
+    metricsPath: '/metrics',
+  }),
+)
 
 if (process.env.SWAGGER === 'TRUE') {
   const swaggerUi = require('swagger-ui-express')
@@ -46,7 +53,6 @@ if (process.env.LOGGER === 'TRUE') {
   app.use(
     expressWinston.logger({
       transports: [new winston.transports.Console()],
-      timeStamp: true,
       format: winston.format.combine(
         winston.format.timestamp({
           format: 'YYYY-MM-DD HH:mm:ss',
@@ -70,6 +76,8 @@ app.use(
     origin: [FRONTEND_URL_FOR_CORS],
   }),
 )
+
+await getClusterSwagger()
 
 /* swagger */
 // app.get('/openapi-bff/swagger/swagger/:clusterName', cache('5 minutes'), getDerefedSwagger)
@@ -98,6 +106,13 @@ app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/terminalPod/terminalPod`, terminal
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/terminalNode/terminalNode`, terminalNodeWebSocket)
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/podLogs/podLogs`, podLogsWebSocket)
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/podLogs/podLogsNonWs`, podLogsNonWsWebSocket)
+
+/* events */
+/* events: list */
+app.get(`${BASEPREFIX}/openapi-bff/evets/events/getKinds`, getEvents)
+
+/* events: ws */
+app.ws(`${BASEPREFIX}/openapi-bff-ws/events/eventsWs`, eventsWebSocket)
 
 app.listen(port, () => {
   console.log(`[server]: Server is running at port: ${port}`)

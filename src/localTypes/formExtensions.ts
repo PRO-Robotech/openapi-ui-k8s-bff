@@ -23,6 +23,7 @@ export type TFormOverride = {
     hidden?: string[][]
     expanded?: string[][]
     persisted?: string[][]
+    sort?: string[][]
   }
 }
 

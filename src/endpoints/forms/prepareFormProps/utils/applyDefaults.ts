@@ -10,6 +10,24 @@ const clone = <T>(x: T): T => _.cloneDeep(x)
 export const applyDefaults = (schema: any, value: unknown): any => {
   if (!schema) return schema
 
+  // If schema is a primitive, return it as is or create a schema object
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+    // If it's boolean true (additionalProperties: true), create a schema object
+    if (schema === true) {
+      return {
+        type:
+          typeof value === 'object' && value !== null && !Array.isArray(value)
+            ? 'object'
+            : Array.isArray(value)
+            ? 'array'
+            : typeof value,
+        default: value,
+      }
+    }
+    // For other primitives, just return
+    return schema
+  }
+
   const s = clone(schema)
   const t = s.type
 
@@ -63,7 +81,10 @@ export const applyDefaults = (schema: any, value: unknown): any => {
     return s
   }
 
-  // If schema has no explicit type, just set default if it’s a JSON-serializable value
-  if (value !== undefined) s.default = value
+  // If schema has no explicit type, just set default if it's a JSON-serializable value
+  // Ensure that s is an object before setting the property
+  if (value !== undefined && s && typeof s === 'object' && !Array.isArray(s)) {
+    s.default = value
+  }
   return s
 }

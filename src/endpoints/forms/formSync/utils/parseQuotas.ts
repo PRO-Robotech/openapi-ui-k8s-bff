@@ -1,4 +1,4 @@
-export function floorToDecimal(num: number, decimalPlaces: number): number {
+export const floorToDecimal = (num: number, decimalPlaces: number): number => {
   const factor = 10 ** decimalPlaces
 
   return Math.floor(num * factor) / factor

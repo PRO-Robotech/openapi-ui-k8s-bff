@@ -13,6 +13,8 @@ export const podLogsWebSocket: WebsocketRequestHandler = async (ws, req) => {
 
   const filteredHeaders = { ...req.headers }
   delete filteredHeaders['host'] // Avoid passing internal host header
+  delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
+
   Object.keys(filteredHeaders).forEach(key => {
     if (key.startsWith('sec-websocket-')) {
       delete filteredHeaders[key]
@@ -123,11 +125,20 @@ export const podLogsWebSocket: WebsocketRequestHandler = async (ws, req) => {
         const parsedMessage = JSON.parse(message.toString()) as TMessage
         handleInit(parsedMessage)
       } catch (error) {
-        console.error(`[${new Date().toISOString()}]: WebSocket: Invalid init message:`, error)
+        console.error(`[${new Date().toISOString()}]: WebSocket: Invalid init message:`, {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error,
+        })
         ws.close()
       }
     })
   } catch (error) {
-    console.log(`[${new Date().toISOString()}]: WebSocket: Error catched: ${error}`)
+    console.error(`[${new Date().toISOString()}]: WebSocket: Error catched:`, {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error,
+      body: req.body,
+    })
   }
 }

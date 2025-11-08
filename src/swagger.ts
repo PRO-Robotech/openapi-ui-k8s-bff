@@ -1,4 +1,7 @@
-const swaggerAutogen = require('swagger-autogen')()
+// src/swagger.ts
+import swaggerAutogen from 'swagger-autogen'
+
+const swagger = swaggerAutogen()
 
 const doc = {
   info: {
@@ -11,6 +14,7 @@ const doc = {
 }
 
 const outputFile = './swagger/swagger-output.json'
-const routes = ['./index.ts']
+// If your entry lives in src/, point to it explicitly:
+const routes = ['./src/index.ts']
 
-swaggerAutogen(outputFile, routes, doc)
+swagger(outputFile, routes, doc)

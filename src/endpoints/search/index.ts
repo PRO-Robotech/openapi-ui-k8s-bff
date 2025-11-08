@@ -1,0 +1,1 @@
+export { getKinds } from './kinds'

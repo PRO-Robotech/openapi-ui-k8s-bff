@@ -20,8 +20,18 @@ export const filterIfApiNamespaceScoped: RequestHandler = async (req: TFilterIfA
     const result: TFilterIfApiInstanceNamespaceScopedRes = filterApiResources({ swaggerPaths, ...rest })
     return res.json(result)
   } catch (error) {
-    console.error('Error getting dereferenced Swagger:', error)
-    return res.status(500).json(error)
+    console.error('Error getting dereferenced Swagger:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error,
+      body: req.body,
+    })
+
+    const errorResponse = {
+      error: error instanceof Error ? error.message : String(error),
+      ...(process.env.DEVELOPMENT === 'TRUE' && error instanceof Error ? { stack: error.stack } : {}),
+    }
+    res.status(500).json(errorResponse)
   }
 }
 
@@ -42,7 +52,17 @@ export const filterIfBuiltInNamespaceScoped: RequestHandler = async (
     })
     return res.json(result)
   } catch (error) {
-    console.error('Error getting dereferenced Swagger:', error)
-    return res.status(500).json(error)
+    console.error('Error getting dereferenced Swagger:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error,
+      body: req.body,
+    })
+
+    const errorResponse = {
+      error: error instanceof Error ? error.message : String(error),
+      ...(process.env.DEVELOPMENT === 'TRUE' && error instanceof Error ? { stack: error.stack } : {}),
+    }
+    res.status(500).json(errorResponse)
   }
 }

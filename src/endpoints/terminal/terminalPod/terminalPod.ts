@@ -44,44 +44,52 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
           DEVELOPMENT ? {} : filteredHeaders,
         )}`,
       )
-      const podWs = new WebSocket(execUrl, {
-        agent: httpsAgent,
-        headers: {
-          ...(DEVELOPMENT ? {} : filteredHeaders),
-        },
-        protocol: 'v5.channel.k8s.io',
-        handshakeTimeout: 5_000,
-      })
+      try {
+        const podWs = new WebSocket(execUrl, {
+          agent: httpsAgent,
+          headers: {
+            ...(DEVELOPMENT ? {} : filteredHeaders),
+          },
+          protocol: 'v5.channel.k8s.io',
+          handshakeTimeout: 5_000,
+        })
 
-      podWs.on('open', () => {
-        console.log(`[${new Date().toISOString()}]: WebsocketPod: Connected to pod terminal`)
-      })
+        podWs.on('open', () => {
+          console.log(`[${new Date().toISOString()}]: WebsocketPod: Connected to pod terminal`)
+        })
 
-      podWs.on('message', data => {
-        // ws.send(data.toString())
-        ws.send(JSON.stringify({ type: 'output', payload: data }))
-      })
+        podWs.on('message', data => {
+          // ws.send(data.toString())
+          ws.send(JSON.stringify({ type: 'output', payload: data }))
+        })
 
-      podWs.on('close', () => {
-        console.log(`[${new Date().toISOString()}]: WebsocketPod: Disconnected from pod terminal`)
-        ws.close()
-      })
+        podWs.on('close', () => {
+          console.log(`[${new Date().toISOString()}]: WebsocketPod: Disconnected from pod terminal`)
+          ws.close()
+        })
 
-      podWs.on('error', error => {
-        console.error(`[${new Date().toISOString()}]: WebsocketPod: Pod WebSocket error:`, error)
-      })
+        podWs.on('error', error => {
+          console.error(`[${new Date().toISOString()}]: WebsocketPod: Pod WebSocket error:`, error)
+        })
 
-      ws.on('message', message => {
-        const parsedMessage = JSON.parse(message.toString()) as TMessage
-        if (parsedMessage.type === 'input') {
-          podWs.send(Buffer.from(`\x00${parsedMessage.payload}`, 'utf8'))
-        }
-      })
+        ws.on('message', message => {
+          const parsedMessage = JSON.parse(message.toString()) as TMessage
+          if (parsedMessage.type === 'input') {
+            podWs.send(Buffer.from(`\x00${parsedMessage.payload}`, 'utf8'))
+          }
+        })
 
-      ws.on('close', () => {
-        console.log(`[${new Date().toISOString()}]: Websocket: Client disconnected`)
-        podWs.close()
-      })
+        ws.on('close', () => {
+          console.log(`[${new Date().toISOString()}]: Websocket: Client disconnected`)
+          podWs.close()
+        })
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}]: WebSocket: Error catched`, {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error,
+        })
+      }
     }
 
     ws.once('message', (message: Buffer) => {

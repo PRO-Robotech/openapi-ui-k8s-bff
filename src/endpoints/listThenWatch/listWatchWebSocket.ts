@@ -169,6 +169,19 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     }
   }
 
+  /**
+   * Helper to send initial list page error.
+   */
+  const sendInitialError = (msg: string) => {
+    try {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'INITIAL_ERROR', message: msg }))
+      }
+    } catch {
+      console.error('Failed to send console to frontend')
+    }
+  }
+
   // -------- LIST HELPERS --------
 
   // Build querystring for list call. Note: K8s uses 'continue' (not '_continue').
@@ -422,6 +435,7 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
           }),
         )
       } catch (error) {
+        sendInitialError(`[${new Date().toISOString()}]: Failed to send INITIAL page`)
         sendServerLog('error', `[${new Date().toISOString()}]: Failed to send INITIAL page`)
         console.error(`[${new Date().toISOString()}]: Failed to send INITIAL page:`, {
           message: error instanceof Error ? error.message : String(error),
@@ -432,6 +446,7 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     }
   } catch (error) {
     // If the initial list fails, we still proceed to attempt a watch so the client gets errors later.
+    sendInitialError(`[${new Date().toISOString()}]: Initial list failed`)
     sendServerLog('error', `[${new Date().toISOString()}]: Initial list failed`)
     console.error(`[${new Date().toISOString()}]: Initial list failed:`, {
       message: error instanceof Error ? error.message : String(error),

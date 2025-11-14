@@ -65,6 +65,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
     const namespaceScopedWithoutNamespace = isNamespaced && !req.body.namespace
     const basePrefixLinkWithoutName = req.body.k8sResource
       ? getResourceLinkWithoutName({
+          clusterName: req.body.clusterName,
           resource: req.body.k8sResource.resource,
           apiGroup: req.body.k8sResource.apiGroup,
           apiVersion: req.body.k8sResource.apiVersion,
@@ -72,7 +73,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
           namespace: req.body.namespace,
         })
       : undefined
-    const namespaceLinkWithoutName = getNamespaceLink()
+    const namespaceLinkWithoutName = getNamespaceLink({ clusterName: req.body.clusterName })
 
     // console.log(`resource: ${req.body.k8sResource?.resource} | namespaced: ${isNamespaced}`)
     // console.log(`resource: ${req.body.k8sResource?.resource} | basePrefixLinkWithoutName: ${basePrefixLinkWithoutName}`)

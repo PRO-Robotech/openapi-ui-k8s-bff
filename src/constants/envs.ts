@@ -11,7 +11,6 @@ export const KUBE_API_URL = `https://${process.env.KUBERNETES_SERVICE_HOST}:${pr
 export const DEBUG_CONTAINER_IMAGE = process.env.DEBUG_CONTAINER_IMAGE || 'no-container-image-in-env'
 
 export const BASE_FRONTEND_PREFIX = process.env.BASE_FRONTEND_PREFIX
-export const BASE_CLUSTERNAME = process.env.BASE_CLUSTERNAME
 
 export const BASE_FACTORY_NAMESPACED_API_KEY = process.env.BASE_FACTORY_NAMESPACED_API_KEY
 export const BASE_FACTORY_CLUSTERSCOPED_API_KEY = process.env.BASE_FACTORY_CLUSTERSCOPED_API_KEY

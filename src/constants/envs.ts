@@ -2,12 +2,19 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
+export const DEVELOPMENT = process.env.DEVELOPMENT === 'TRUE'
+
 export const DEV_KUBE_API_URL = process.env.DEV_KUBE_API_URL || 'no-dev-kube-api-url'
+export const KUBE_API_URL = `https://${process.env.KUBERNETES_SERVICE_HOST}:${process.env.KUBERNETES_SERVICE_PORT}`
+
+export const BASEPREFIX = process.env.BASEPREFIX || ''
+
 export const BASE_API_GROUP = process.env.BASE_API_GROUP
 export const BASE_API_VERSION = process.env.BASE_API_VERSION
-export const BASEPREFIX = process.env.BASEPREFIX || ''
-export const DEVELOPMENT = process.env.DEVELOPMENT === 'TRUE'
-export const KUBE_API_URL = `https://${process.env.KUBERNETES_SERVICE_HOST}:${process.env.KUBERNETES_SERVICE_PORT}`
+
+export const BASE_NAVIGATION_RESOURCE_PLURAL_NAME = process.env.BASE_NAVIGATION_RESOURCE_PLURAL_NAME
+export const BASE_NAVIGATION_RESOURCE_SPEICIFC_NAME = process.env.BASE_NAVIGATION_RESOURCE_SPEICIFC_NAME
+
 export const DEBUG_CONTAINER_IMAGE = process.env.DEBUG_CONTAINER_IMAGE || 'no-container-image-in-env'
 
 export const BASE_FRONTEND_PREFIX = process.env.BASE_FRONTEND_PREFIX

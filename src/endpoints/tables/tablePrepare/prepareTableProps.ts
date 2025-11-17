@@ -4,7 +4,14 @@ import { TPrepareTableReq, TPrepareTableRes } from 'src/localTypes/endpoints/tab
 import { TAPIResourceList, TAPIResource } from 'src/localTypes/kinds'
 import { TTableMappingResponse } from 'src/localTypes/tableExtensions'
 import { TApiResources } from 'src/localTypes/k8s'
-import { DEVELOPMENT, BASE_API_GROUP, BASE_API_VERSION } from 'src/constants/envs'
+import { TNavigationResource } from 'src/localTypes/navigations'
+import {
+  DEVELOPMENT,
+  BASE_API_GROUP,
+  BASE_API_VERSION,
+  BASE_NAVIGATION_RESOURCE_PLURAL_NAME,
+  BASE_NAVIGATION_RESOURCE_SPEICIFC_NAME,
+} from 'src/constants/envs'
 import { userKubeApi, kubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { parseColumnsOverrides } from './utils/parseColumnsOverrides'
@@ -25,6 +32,10 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
           'Content-Type': 'application/json',
         },
       },
+    )
+
+    const { data: navigationResource } = await kubeApi.get<TNavigationResource | undefined>(
+      `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/${BASE_NAVIGATION_RESOURCE_PLURAL_NAME}/${BASE_NAVIGATION_RESOURCE_SPEICIFC_NAME}`,
     )
 
     const {
@@ -71,6 +82,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
           apiVersion: req.body.k8sResource.apiVersion,
           isNamespaced,
           namespace: req.body.namespace,
+          baseFactoriesMapping: navigationResource?.spec?.baseFactoriesMapping,
         })
       : undefined
     const namespaceLinkWithoutName = getNamespaceLink({ clusterName: req.body.clusterName })

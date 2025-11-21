@@ -13,7 +13,7 @@ export const filterBuiltinResources = ({
 }): TBuiltinResourceTypeList['resources'] | undefined => {
   return namespace
     ? data?.resources?.filter(
-        ({ name }) => checkIfBuiltInInstanceNamespaceScoped({ typeName: name, swaggerPaths }).isNamespaceScoped,
+        ({ name }) => checkIfBuiltInInstanceNamespaceScoped({ plural: name, swaggerPaths }).isNamespaceScoped,
       )
     : data?.resources
 }

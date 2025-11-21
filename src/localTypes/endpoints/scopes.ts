@@ -4,10 +4,10 @@ import { TApiGroupResourceTypeList, TBuiltinResourceTypeList } from '../k8s'
 /* check */
 export type TCheckIfApiInstanceNamespaceScopedReq = {
   body: {
-    typeName: string
+    plural: string
     apiGroup: string
     apiVersion: string
-    clusterName: string
+    cluster: string
   }
 } & THeaders
 
@@ -18,8 +18,8 @@ export type TCheckIfApiInstanceNamespaceScopedRes = {
 
 export type TCheckIfBuiltInInstanceNamespaceScopedReq = {
   body: {
-    typeName: string
-    clusterName: string
+    plural: string
+    cluster: string
   }
 } & THeaders
 
@@ -35,7 +35,7 @@ export type TFilterIfApiInstanceNamespaceScopedReq = {
     data?: TApiGroupResourceTypeList
     apiGroup: string
     apiVersion: string
-    clusterName: string
+    cluster: string
   }
 } & THeaders
 
@@ -45,7 +45,7 @@ export type TFilterIfBuiltInInstanceNamespaceScopedReq = {
   body: {
     namespace?: string
     data?: TBuiltinResourceTypeList
-    clusterName: string
+    cluster: string
   }
 } & THeaders
 

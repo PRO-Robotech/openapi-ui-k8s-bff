@@ -20,8 +20,8 @@ type TWatchPhase = 'ADDED' | 'MODIFIED' | 'DELETED' | 'BOOKMARK'
 
 /** Triple that identifies a K8s resource endpoint. group omitted/empty => core API. */
 type ApiTriple = {
-  group?: string // undefined or '' => core
-  version: string
+  apiGroup?: string // undefined or '' => core
+  apiVersion: string
   plural: string // resource plural (e.g., "pods", "deployments")
 }
 
@@ -118,14 +118,14 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     return
   }
 
-  const target: ApiTriple = { group: apiGroup || undefined, version: apiVersion, plural }
+  const target: ApiTriple = { apiGroup: apiGroup || undefined, apiVersion: apiVersion, plural }
 
   console.log(`[${new Date().toISOString()}]: Query params parsed:`, {
     namespace,
     initialLimit,
     initialContinue,
-    apiGroup: target.group,
-    apiVersion: target.version,
+    apiGroup: target.apiGroup,
+    apiVersion: target.apiVersion,
     plural: target.plural,
     sinceRV,
   })
@@ -146,8 +146,8 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
   let startingWatch = false
 
   // Resolve base path for list/watch depending on core vs. aggregated API group
-  const isCore = !target.group || target.group === ''
-  const listBasePath = isCore ? `/api/${target.version}` : `/apis/${target.group}/${target.version}`
+  const isCore = !target.apiGroup || target.apiGroup === ''
+  const listBasePath = isCore ? `/api/${target.apiVersion}` : `/apis/${target.apiGroup}/${target.apiVersion}`
   const listPath = namespace
     ? `${listBasePath}/namespaces/${namespace}/${target.plural}`
     : `${listBasePath}/${target.plural}`

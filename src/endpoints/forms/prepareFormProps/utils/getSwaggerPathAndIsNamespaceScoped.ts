@@ -11,7 +11,7 @@ export const getSwaggerPathAndIsNamespaceScoped = ({
   data:
     | {
         type: 'builtin'
-        typeName: string
+        plural: string
         prefillValuesSchema?: TJSON
         prefillValueNamespaceOnly?: string
       }
@@ -19,7 +19,7 @@ export const getSwaggerPathAndIsNamespaceScoped = ({
         type: 'apis'
         apiGroup: string
         apiVersion: string
-        typeName: string
+        plural: string
         prefillValuesSchema?: TJSON
         prefillValueNamespaceOnly?: string
       }
@@ -29,25 +29,25 @@ export const getSwaggerPathAndIsNamespaceScoped = ({
 
   if (data.type === 'builtin') {
     const { isNamespaceScoped } = checkIfBuiltInInstanceNamespaceScoped({
-      typeName: data.typeName,
+      plural: data.plural,
       swaggerPaths,
     })
     if (isNamespaceScoped) {
       isNamespaced = true
     }
-    swaggerPath = `/api/v1${isNamespaceScoped ? '/namespaces/{namespace}' : ''}/${data.typeName}`
+    swaggerPath = `/api/v1${isNamespaceScoped ? '/namespaces/{namespace}' : ''}/${data.plural}`
   } else {
     const { isNamespaceScoped } = checkIfApiInstanceNamespaceScoped({
       apiGroup: data.apiGroup,
       apiVersion: data.apiVersion,
-      typeName: data.typeName,
+      plural: data.plural,
       swaggerPaths,
     })
     if (isNamespaceScoped) {
       isNamespaced = true
     }
     swaggerPath = `/apis/${data.apiGroup}/${data.apiVersion}${isNamespaceScoped ? '/namespaces/{namespace}' : ''}/${
-      data.typeName
+      data.plural
     }`
   }
 

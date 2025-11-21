@@ -82,8 +82,8 @@ app.use(
 await getClusterSwagger()
 
 /* swagger */
-// app.get('/openapi-bff/swagger/swagger/:clusterName', cache('5 minutes'), getDerefedSwagger)
-app.get(`${BASEPREFIX}/openapi-bff/swagger/swagger/:clusterName`, getDerefedSwagger)
+// app.get('/openapi-bff/swagger/swagger/:cluster', cache('5 minutes'), getDerefedSwagger)
+app.get(`${BASEPREFIX}/openapi-bff/swagger/swagger/:cluster`, getDerefedSwagger)
 
 /* forms */
 app.post(`${BASEPREFIX}/openapi-bff/forms/formSync/getYamlValuesByFromValues`, getYamlValuesByFromValues)

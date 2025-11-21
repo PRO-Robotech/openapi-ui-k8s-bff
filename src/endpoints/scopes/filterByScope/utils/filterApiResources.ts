@@ -18,7 +18,7 @@ export const filterApiResources = ({
   return namespace
     ? data?.resources.filter(
         ({ name }) =>
-          checkIfApiInstanceNamespaceScoped({ typeName: name, apiGroup, apiVersion, swaggerPaths }).isNamespaceScoped,
+          checkIfApiInstanceNamespaceScoped({ plural: name, apiGroup, apiVersion, swaggerPaths }).isNamespaceScoped,
       )
     : data?.resources
 }

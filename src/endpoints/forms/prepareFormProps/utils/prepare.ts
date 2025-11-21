@@ -25,7 +25,7 @@ export const prepare = async ({
       result: 'error',
       error: 'no swagger paths',
       isNamespaced: false,
-      kindName: undefined,
+      kind: undefined,
       fallbackToManualMode: true,
     }
   }
@@ -37,10 +37,10 @@ export const prepare = async ({
 
   const swaggerPathValue = await getClusterSwaggerPathByName(swaggerPath)
 
-  const { bodyParametersSchema, kindName, error } = getBodyParametersSchema({ swaggerPathValue, swaggerPath })
+  const { bodyParametersSchema, kind, error } = getBodyParametersSchema({ swaggerPathValue, swaggerPath })
 
   if (error) {
-    return { result: 'error', error, isNamespaced, kindName, fallbackToManualMode: true }
+    return { result: 'error', error, isNamespaced, kind, fallbackToManualMode: true }
   }
 
   const specificCustomOverrides = formsOverridesData?.items.find(item => item.spec.customizationId === customizationId)
@@ -93,7 +93,7 @@ export const prepare = async ({
     expandedPaths: uniqExpanded,
     persistedPaths: uniqPersisted,
     sortPaths,
-    kindName,
+    kind,
     isNamespaced,
     formPrefills: formsPrefillsData?.items.find(item => item.spec.customizationId === customizationId),
     namespacesData: namespacesData?.items?.map(item => item.metadata?.name).filter(Boolean),

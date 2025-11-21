@@ -10,11 +10,11 @@ import {
 const getFactoryKey = ({
   apiGroup,
   apiVersion,
-  resource,
+  plural,
   isNamespaced,
   baseFactoriesMapping,
 }: {
-  resource: string
+  plural: string
   apiGroup?: string
   apiVersion: string
   isNamespaced?: boolean
@@ -23,35 +23,35 @@ const getFactoryKey = ({
   if (isNamespaced) {
     if (apiGroup) {
       const forcedMapping =
-        baseFactoriesMapping?.[`${BASE_FACTORY_NAMESPACED_API_KEY}-${apiGroup}-${apiVersion}-${resource}`]
+        baseFactoriesMapping?.[`${BASE_FACTORY_NAMESPACED_API_KEY}-${apiGroup}-${apiVersion}-${plural}`]
       return forcedMapping || BASE_FACTORY_NAMESPACED_API_KEY || ''
     }
 
-    const forcedMapping = baseFactoriesMapping?.[`${BASE_FACTORY_NAMESPACED_BUILTIN_KEY}-${apiVersion}-${resource}`]
+    const forcedMapping = baseFactoriesMapping?.[`${BASE_FACTORY_NAMESPACED_BUILTIN_KEY}-${apiVersion}-${plural}`]
     return forcedMapping || BASE_FACTORY_NAMESPACED_BUILTIN_KEY || ''
   }
 
   if (apiGroup) {
     const forcedMapping =
-      baseFactoriesMapping?.[`${BASE_FACTORY_CLUSTERSCOPED_API_KEY}-${apiGroup}-${apiVersion}-${resource}`]
+      baseFactoriesMapping?.[`${BASE_FACTORY_CLUSTERSCOPED_API_KEY}-${apiGroup}-${apiVersion}-${plural}`]
     return forcedMapping || BASE_FACTORY_CLUSTERSCOPED_API_KEY || ''
   }
 
-  const forcedMapping = baseFactoriesMapping?.[`${BASE_FACTORY_CLUSTERSCOPED_BUILTIN_KEY}-${apiVersion}-${resource}`]
+  const forcedMapping = baseFactoriesMapping?.[`${BASE_FACTORY_CLUSTERSCOPED_BUILTIN_KEY}-${apiVersion}-${plural}`]
   return forcedMapping || BASE_FACTORY_CLUSTERSCOPED_BUILTIN_KEY || ''
 }
 
 export const getResourceLinkWithoutName = ({
-  clusterName,
-  resource,
+  cluster,
+  plural,
   apiGroup,
   apiVersion,
   isNamespaced,
   namespace,
   baseFactoriesMapping,
 }: {
-  clusterName: string
-  resource: string
+  cluster: string
+  plural: string
   apiGroup?: string
   apiVersion: string
   isNamespaced?: boolean
@@ -61,24 +61,24 @@ export const getResourceLinkWithoutName = ({
   const namespacePrepared = namespace ? `/${namespace}` : `/{reqsJsonPath[0]['.metadata.namespace']['-']}`
 
   if (apiGroup) {
-    return `${BASE_FRONTEND_PREFIX}/${clusterName}${isNamespaced ? namespacePrepared : ''}/factory/${getFactoryKey({
+    return `${BASE_FRONTEND_PREFIX}/${cluster}${isNamespaced ? namespacePrepared : ''}/factory/${getFactoryKey({
       apiGroup,
       apiVersion,
-      resource,
+      plural,
       isNamespaced,
       baseFactoriesMapping,
-    })}${apiGroup ? `/${apiGroup}` : ''}/${apiVersion}/${resource}`
+    })}${apiGroup ? `/${apiGroup}` : ''}/${apiVersion}/${plural}`
   }
 
-  return `${BASE_FRONTEND_PREFIX}/${clusterName}${isNamespaced ? namespacePrepared : ''}/factory/${getFactoryKey({
+  return `${BASE_FRONTEND_PREFIX}/${cluster}${isNamespaced ? namespacePrepared : ''}/factory/${getFactoryKey({
     apiGroup,
     apiVersion,
-    resource,
+    plural,
     isNamespaced,
     baseFactoriesMapping,
-  })}${apiGroup ? `/${apiGroup}` : ''}/${apiVersion}/${resource}`
+  })}${apiGroup ? `/${apiGroup}` : ''}/${apiVersion}/${plural}`
 }
 
-export const getNamespaceLink = ({ clusterName }: { clusterName: string }): string => {
-  return `${BASE_FRONTEND_PREFIX}/${clusterName}/factory/${BASE_NAMESPACE_FACTORY_KEY}`
+export const getNamespaceLink = ({ cluster }: { cluster: string }): string => {
+  return `${BASE_FRONTEND_PREFIX}/${cluster}/factory/${BASE_NAMESPACE_FACTORY_KEY}`
 }

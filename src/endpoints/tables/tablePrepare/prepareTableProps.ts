@@ -9,8 +9,8 @@ import {
   DEVELOPMENT,
   BASE_API_GROUP,
   BASE_API_VERSION,
-  BASE_NAVIGATION_RESOURCE_PLURAL_NAME,
-  BASE_NAVIGATION_RESOURCE_SPEICIFC_NAME,
+  BASE_NAVIGATION_RESOURCE_PLURAL,
+  BASE_NAVIGATION_RESOURCE_NAME,
 } from 'src/constants/envs'
 import { userKubeApi, kubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
@@ -35,7 +35,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
     )
 
     const { data: navigationResource } = await kubeApi.get<TNavigationResource | undefined>(
-      `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/${BASE_NAVIGATION_RESOURCE_PLURAL_NAME}/${BASE_NAVIGATION_RESOURCE_SPEICIFC_NAME}`,
+      `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/${BASE_NAVIGATION_RESOURCE_PLURAL}/${BASE_NAVIGATION_RESOURCE_NAME}`,
     )
 
     const {
@@ -56,16 +56,16 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
         `/apis/${req.body.k8sResource.apiGroup}/${req.body.k8sResource.apiVersion}`,
       )
       const specificResource: TAPIResource | undefined = apiResourceList.resources.find(
-        ({ name }) => name === req.body.k8sResource?.resource,
+        ({ name }) => name === req.body.k8sResource?.plural,
       )
       if (specificResource?.namespaced) {
         isNamespaced = true
       }
       kind = specificResource?.kind
-    } else if (req.body.k8sResource?.resource) {
+    } else if (req.body.k8sResource?.plural) {
       const { data: apiResourceList } = await kubeApi.get<TAPIResourceList>(`/api/${req.body.k8sResource.apiVersion}`)
       const specificResource: TAPIResource | undefined = apiResourceList.resources.find(
-        ({ name }) => name === req.body.k8sResource?.resource,
+        ({ name }) => name === req.body.k8sResource?.plural,
       )
       if (specificResource?.namespaced) {
         isNamespaced = true
@@ -76,8 +76,8 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
     const namespaceScopedWithoutNamespace = isNamespaced && !req.body.namespace
     const basePrefixLinkWithoutName = req.body.k8sResource
       ? getResourceLinkWithoutName({
-          clusterName: req.body.clusterName,
-          resource: req.body.k8sResource.resource,
+          cluster: req.body.cluster,
+          plural: req.body.k8sResource.plural,
           apiGroup: req.body.k8sResource.apiGroup,
           apiVersion: req.body.k8sResource.apiVersion,
           isNamespaced,
@@ -85,10 +85,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
           baseFactoriesMapping: navigationResource?.spec?.baseFactoriesMapping,
         })
       : undefined
-    const namespaceLinkWithoutName = getNamespaceLink({ clusterName: req.body.clusterName })
-
-    // console.log(`resource: ${req.body.k8sResource?.resource} | namespaced: ${isNamespaced}`)
-    // console.log(`resource: ${req.body.k8sResource?.resource} | basePrefixLinkWithoutName: ${basePrefixLinkWithoutName}`)
+    const namespaceLinkWithoutName = getNamespaceLink({ cluster: req.body.cluster })
 
     const additionalPrinterColumns = getDefaultAdditionalPrinterColumns({
       forceDefaultAdditionalPrinterColumns: req.body.forceDefaultAdditionalPrinterColumns,

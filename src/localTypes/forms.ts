@@ -6,7 +6,7 @@ export type TPrepareForm = {
   data:
     | {
         type: 'builtin'
-        typeName: string
+        plural: string
         prefillValuesSchema?: TJSON
         prefillValueNamespaceOnly?: string
       }
@@ -14,11 +14,11 @@ export type TPrepareForm = {
         type: 'apis'
         apiGroup: string
         apiVersion: string
-        typeName: string
+        plural: string
         prefillValuesSchema?: TJSON
         prefillValueNamespaceOnly?: string
       }
-  clusterName: string
+  cluster: string
   formsOverridesData?: TFormsOverridesData
   formsPrefillsData?: TFormsPrefillsData
   customizationId?: string

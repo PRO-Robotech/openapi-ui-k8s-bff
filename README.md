@@ -14,8 +14,8 @@ This app can be configured through environment variables.
 | `BASEPREFIX`                             | `string` | Base url for app                                            |
 | `BASE_API_GROUP`                         | `string` | API group for customization resources. `front.in-cloud.io`  |
 | `BASE_API_VERSION`                       | `string` | API version for customization resources. `v1alpha1`         |
-| `BASE_NAVIGATION_RESOURCE_PLURAL_NAME`   | `string` | Resource plural name for navigation settings. `navigations` |
-| `BASE_NAVIGATION_RESOURCE_SPEICIFC_NAME` | `string` | Resource name for navigation settings. `navigation`         |
+| `BASE_NAVIGATION_RESOURCE_PLURAL`        | `string` | Resource plural name for navigation settings. `navigations` |
+| `BASE_NAVIGATION_RESOURCE_NAME`          | `string` | Resource name for navigation settings. `navigation`         |
 | `DEBUG_CONTAINER_IMAGE`                  | `string` | Image for Node Terminal                                     |
 | `BASE_FRONTEND_PREFIX`                   | `string` | To build proper links to resources                          |
 | `BASE_FACTORY_NAMESPACED_API_KEY`        | `string` | Base factory key for namespaced API resource                |

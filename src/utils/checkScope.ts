@@ -1,16 +1,16 @@
 export const checkIfApiInstanceNamespaceScoped = ({
-  typeName,
+  plural,
   apiGroup,
   apiVersion,
   swaggerPaths,
 }: {
-  typeName: string
+  plural: string
   apiGroup: string
   apiVersion: string
   swaggerPaths: string[]
 }): { isClusterWide: boolean; isNamespaceScoped: boolean } => {
-  const url = `/apis/${apiGroup}/${apiVersion}/${typeName}`
-  const nsUrl = `/apis/${apiGroup}/${apiVersion}/namespaces/{namespace}/${typeName}`
+  const url = `/apis/${apiGroup}/${apiVersion}/${plural}`
+  const nsUrl = `/apis/${apiGroup}/${apiVersion}/namespaces/{namespace}/${plural}`
   const isClusterWide = swaggerPaths.includes(url)
   const isNamespaceScoped = swaggerPaths.includes(nsUrl)
 
@@ -18,14 +18,14 @@ export const checkIfApiInstanceNamespaceScoped = ({
 }
 
 export const checkIfBuiltInInstanceNamespaceScoped = ({
-  typeName,
+  plural,
   swaggerPaths,
 }: {
-  typeName: string
+  plural: string
   swaggerPaths: string[]
 }): { isClusterWide: boolean; isNamespaceScoped: boolean } => {
-  const url = `/api/v1/${typeName}`
-  const nsUrl = `/api/v1/namespaces/{namespace}/${typeName}`
+  const url = `/api/v1/${plural}`
+  const nsUrl = `/api/v1/namespaces/{namespace}/${plural}`
   const isClusterWide = swaggerPaths.includes(url)
   const isNamespaceScoped = swaggerPaths.includes(nsUrl)
 

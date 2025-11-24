@@ -25,7 +25,9 @@ import {
   podLogsNonWsWebSocket,
 } from 'src/endpoints/terminal'
 import { getKinds } from 'src/endpoints/search'
+import { getResourceVerbs } from 'src/endpoints/verbs'
 import { getEvents, eventsWebSocket } from 'src/endpoints/events'
+import { listWatchWebSocket } from 'src/endpoints/listThenWatch'
 import { getClusterSwagger } from './cache'
 
 dotenv.config()
@@ -80,8 +82,8 @@ app.use(
 await getClusterSwagger()
 
 /* swagger */
-// app.get('/openapi-bff/swagger/swagger/:clusterName', cache('5 minutes'), getDerefedSwagger)
-app.get(`${BASEPREFIX}/openapi-bff/swagger/swagger/:clusterName`, getDerefedSwagger)
+// app.get('/openapi-bff/swagger/swagger/:cluster', cache('5 minutes'), getDerefedSwagger)
+app.get(`${BASEPREFIX}/openapi-bff/swagger/swagger/:cluster`, getDerefedSwagger)
 
 /* forms */
 app.post(`${BASEPREFIX}/openapi-bff/forms/formSync/getYamlValuesByFromValues`, getYamlValuesByFromValues)
@@ -101,6 +103,9 @@ app.post(`${BASEPREFIX}/openapi-bff/scopes/filterScopes/filterIfBuiltInNamespace
 /* kinds */
 app.get(`${BASEPREFIX}/openapi-bff/search/kinds/getKinds`, getKinds)
 
+/* verbs */
+app.get(`${BASEPREFIX}/openapi-bff/verbs/getResourceVerbs`, getResourceVerbs)
+
 /* terminal */
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/terminalPod/terminalPod`, terminalPodWebSocket)
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/terminalNode/terminalNode`, terminalNodeWebSocket)
@@ -113,6 +118,9 @@ app.get(`${BASEPREFIX}/openapi-bff/evets/events/getKinds`, getEvents)
 
 /* events: ws */
 app.ws(`${BASEPREFIX}/openapi-bff-ws/events/eventsWs`, eventsWebSocket)
+
+/* list-then-watch: ws */
+app.ws(`${BASEPREFIX}/openapi-bff-ws/listThenWatch/listWatchWs`, listWatchWebSocket)
 
 app.listen(port, () => {
   console.log(`[server]: Server is running at port: ${port}`)

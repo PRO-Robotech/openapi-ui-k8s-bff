@@ -182,37 +182,6 @@ export const allApis: TKubeClientsSurface = {
   customObjects: kcSa.makeApiClient(CustomObjectsApi),
 }
 
-/**
- * ---- API discovery helpers (v1 everything) ----
- * Lightweight wrappers using the underlying client's raw `request` method.
- */
-// const rawGet = async <T>(client: any, path: string, signal?: AbortSignal): Promise<T> => {
-//   const opts: any = { method: 'GET', uri: `${baseUrl}${path}` }
-//   if (DEVELOPMENT) opts.rejectUnauthorized = false
-//   if (signal) opts.signal = signal
-//   return client.request(opts).then((res: any) => (res.body ? JSON.parse(res.body) : res))
-// }
-
-// /** List non-core API groups (GET /apis) */
-// export const getApiGroups = async (signal?: AbortSignal): Promise<V1APIGroupList> => {
-//   return rawGet(allApis.core, '/apis', signal)
-// }
-
-// /** List core API versions (GET /api) */
-// export const getCoreApiVersions = async (signal?: AbortSignal): Promise<V1APIVersions> => {
-//   return rawGet(allApis.core, '/api', signal)
-// }
-
-// /** List resources for a given group/version (GET /apis/{group}/{version}) */
-// export const getResourcesFor = async (
-//   group: string,
-//   version: string,
-//   signal?: AbortSignal,
-// ): Promise<V1APIResourceList> => {
-//   const path = `/apis/${group}/${version}`
-//   return rawGet(allApis.core, path, signal)
-// }
-
 /** ---------- User-proxied client: STRICTLY no SA auth ---------- */
 export const createUserKubeClient = (
   userHeaders: Record<string, string | string[] | undefined>,

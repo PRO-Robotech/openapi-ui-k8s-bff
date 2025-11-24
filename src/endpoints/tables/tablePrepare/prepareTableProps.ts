@@ -1,11 +1,19 @@
-import { RequestHandler } from 'express'
+import { Request, RequestHandler } from 'express'
 import _ from 'lodash'
 import { TPrepareTableReq, TPrepareTableRes } from 'src/localTypes/endpoints/tables'
 import { TAPIResourceList, TAPIResource } from 'src/localTypes/kinds'
 import { TTableMappingResponse } from 'src/localTypes/tableExtensions'
 import { TApiResources } from 'src/localTypes/k8s'
-import { DEVELOPMENT, BASE_API_GROUP, BASE_API_VERSION } from 'src/constants/envs'
+import { TNavigationResource } from 'src/localTypes/navigations'
+import {
+  DEVELOPMENT,
+  BASE_API_GROUP,
+  BASE_API_VERSION,
+  BASE_NAVIGATION_RESOURCE_PLURAL,
+  BASE_NAVIGATION_RESOURCE_NAME,
+} from 'src/constants/envs'
 import { userKubeApi, kubeApi } from 'src/constants/httpAgent'
+import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { parseColumnsOverrides } from './utils/parseColumnsOverrides'
 import { prepareTableMappings } from './utils/prepareTableMappings'
 import { getResourceLinkWithoutName, getNamespaceLink } from './utils/getBaseLinks'
@@ -14,9 +22,7 @@ import { prepareKeyTypeProps } from './utils/prepareKeyTypeProps'
 
 export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, res) => {
   try {
-    const filteredHeaders = { ...req.headers }
-    delete filteredHeaders['host'] // Avoid passing internal host header
-    delete filteredHeaders['content-length'] // This header causes "stream has been aborted"
+    const filteredHeaders = filterHeadersFromEnv(req as Request)
 
     const { data: customcolumnsoverrides } = await userKubeApi.get<TApiResources>(
       `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/customcolumnsoverrides`,
@@ -26,6 +32,10 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
           'Content-Type': 'application/json',
         },
       },
+    )
+
+    const { data: navigationResource } = await kubeApi.get<TNavigationResource | undefined>(
+      `/apis/${BASE_API_GROUP}/${BASE_API_VERSION}/${BASE_NAVIGATION_RESOURCE_PLURAL}/${BASE_NAVIGATION_RESOURCE_NAME}`,
     )
 
     const {
@@ -46,16 +56,16 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
         `/apis/${req.body.k8sResource.apiGroup}/${req.body.k8sResource.apiVersion}`,
       )
       const specificResource: TAPIResource | undefined = apiResourceList.resources.find(
-        ({ name }) => name === req.body.k8sResource?.resource,
+        ({ name }) => name === req.body.k8sResource?.plural,
       )
       if (specificResource?.namespaced) {
         isNamespaced = true
       }
       kind = specificResource?.kind
-    } else if (req.body.k8sResource?.resource) {
+    } else if (req.body.k8sResource?.plural) {
       const { data: apiResourceList } = await kubeApi.get<TAPIResourceList>(`/api/${req.body.k8sResource.apiVersion}`)
       const specificResource: TAPIResource | undefined = apiResourceList.resources.find(
-        ({ name }) => name === req.body.k8sResource?.resource,
+        ({ name }) => name === req.body.k8sResource?.plural,
       )
       if (specificResource?.namespaced) {
         isNamespaced = true
@@ -66,17 +76,16 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
     const namespaceScopedWithoutNamespace = isNamespaced && !req.body.namespace
     const basePrefixLinkWithoutName = req.body.k8sResource
       ? getResourceLinkWithoutName({
-          resource: req.body.k8sResource.resource,
+          cluster: req.body.cluster,
+          plural: req.body.k8sResource.plural,
           apiGroup: req.body.k8sResource.apiGroup,
           apiVersion: req.body.k8sResource.apiVersion,
           isNamespaced,
           namespace: req.body.namespace,
+          baseFactoriesMapping: navigationResource?.spec?.baseFactoriesMapping,
         })
       : undefined
-    const namespaceLinkWithoutName = getNamespaceLink()
-
-    // console.log(`resource: ${req.body.k8sResource?.resource} | namespaced: ${isNamespaced}`)
-    // console.log(`resource: ${req.body.k8sResource?.resource} | basePrefixLinkWithoutName: ${basePrefixLinkWithoutName}`)
+    const namespaceLinkWithoutName = getNamespaceLink({ cluster: req.body.cluster })
 
     const additionalPrinterColumns = getDefaultAdditionalPrinterColumns({
       forceDefaultAdditionalPrinterColumns: req.body.forceDefaultAdditionalPrinterColumns,

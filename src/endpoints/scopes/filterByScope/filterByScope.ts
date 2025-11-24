@@ -11,7 +11,7 @@ import { filterApiResources } from './utils/filterApiResources'
 
 export const filterIfApiNamespaceScoped: RequestHandler = async (req: TFilterIfApiInstanceNamespaceScopedReq, res) => {
   try {
-    const { clusterName, ...rest } = req.body
+    const { cluster, ...rest } = req.body
     const swaggerPaths = await getClusterSwaggerPaths()
     if (!swaggerPaths) {
       return res.status(500).json('No swagger')
@@ -40,7 +40,7 @@ export const filterIfBuiltInNamespaceScoped: RequestHandler = async (
   res,
 ) => {
   try {
-    const { clusterName, ...rest } = req.body
+    const { cluster, ...rest } = req.body
     const swaggerPaths = await getClusterSwaggerPaths()
     if (!swaggerPaths) {
       return res.status(500).json('No swagger')

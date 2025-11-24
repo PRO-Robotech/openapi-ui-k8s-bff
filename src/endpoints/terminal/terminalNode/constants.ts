@@ -16,6 +16,7 @@ export const SHUTDOWN_MESSAGES = {
   POD_DELETE_ERROR: 'Pod delete error',
   NAMESPACE_DELETED: 'Namespace deleted',
   NAMESPACE_DELETE_ERROR: 'Namespace delete error',
+  CRITICAL: 'Clean up failed',
 }
 
 export const CONTAINER_WAITING = {

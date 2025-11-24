@@ -10,7 +10,7 @@ import {
 
 export const checkIfApiNamespaceScoped: RequestHandler = async (req: TCheckIfApiInstanceNamespaceScopedReq, res) => {
   try {
-    const { clusterName, ...rest } = req.body
+    const { cluster, ...rest } = req.body
     const swaggerPaths = await getClusterSwaggerPaths()
     if (!swaggerPaths) {
       return res.status(500).json('No swagger paths')
@@ -39,7 +39,7 @@ export const checkIfBuiltInNamespaceScoped: RequestHandler = async (
   res,
 ) => {
   try {
-    const { clusterName, ...rest } = req.body
+    const { cluster, ...rest } = req.body
     const swaggerPaths = await getClusterSwaggerPaths()
     if (!swaggerPaths) {
       return res.status(500).json('No swagger paths')

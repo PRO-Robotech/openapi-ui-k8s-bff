@@ -33,3 +33,9 @@ Local development: This app can be also configured through more environment vari
 | `DEV_KUBE_API_URL`        | `string` | Full url to k8s proxy inside nginx inside port-forwarded container |
 | `KUBERNETES_SERVICE_HOST` | `string` | Host from API url above                                            |
 | `KUBERNETES_SERVICE_PORT` | `string` | Port from API url above                                            |
+
+---
+
+## 🤝 Contributing
+
+[Check this out](./CONTRIBUTING.md)

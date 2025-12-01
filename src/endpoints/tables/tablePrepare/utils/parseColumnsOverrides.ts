@@ -5,12 +5,14 @@ import {
   TAdditionalPrinterColumnsColWidths,
   TAdditionalPrinterColumnsTrimLengths,
   TAdditionalPrinterColumnsKeyTypeProps,
+  TAdditionalPrinterColumnsDisableSortersAndFilters,
 } from 'src/localTypes/tableExtensions'
 import {
   isWithAdditionalPrinterColumns,
   isWithAdditionalPrinterColumnsUndefinedValues,
   isWithAdditionalPrinterColumnsColWidths,
   isWithAdditionalPrinterColumnsTrimLengths,
+  isWithAdditionalPrinterColumnsDisableSortersAndFilters,
 } from './guards'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -25,6 +27,7 @@ export const parseColumnsOverrides = ({
   ensuredCustomOverridesUndefinedValues?: TAdditionalPrinterColumnsUndefinedValues
   ensuredCustomOverridesTrimLengths?: TAdditionalPrinterColumnsTrimLengths
   ensuredCustomOverridesColWidths?: TAdditionalPrinterColumnsColWidths
+  ensuredCustomOverridesDisableSortersAndFilters?: TAdditionalPrinterColumnsDisableSortersAndFilters
   ensuredCustomOverridesKeyTypeProps?: TAdditionalPrinterColumnsKeyTypeProps
 } => {
   if (!customizationId) {
@@ -57,6 +60,12 @@ export const parseColumnsOverrides = ({
     ? specificCustomOverrides.spec.additionalPrinterColumnsColWidths
     : undefined
 
+  const ensuredCustomOverridesDisableSortersAndFilters = isWithAdditionalPrinterColumnsDisableSortersAndFilters(
+    specificCustomOverrides,
+  )
+    ? specificCustomOverrides.spec.additionalPrinterColumnsDisableSortersAndFilters
+    : undefined
+
   const ensuredCustomOverridesKeyTypeProps: TAdditionalPrinterColumnsKeyTypeProps = {}
   if (ensuredCustomOverrides) {
     ensuredCustomOverrides.forEach(({ name, type, customProps }) => {
@@ -71,6 +80,7 @@ export const parseColumnsOverrides = ({
     ensuredCustomOverridesUndefinedValues,
     ensuredCustomOverridesTrimLengths,
     ensuredCustomOverridesColWidths,
+    ensuredCustomOverridesDisableSortersAndFilters,
     ensuredCustomOverridesKeyTypeProps:
       Object.keys(ensuredCustomOverridesKeyTypeProps).length === 0 ? undefined : ensuredCustomOverridesKeyTypeProps,
   }

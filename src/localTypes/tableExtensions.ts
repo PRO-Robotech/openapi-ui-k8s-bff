@@ -28,6 +28,8 @@ export type TAdditionalPrinterColumnsKeyTypeProps = Record<
   }
 >
 
+export type TAdditionalPrinterColumnsDisableSortersAndFilters = string[] // React.Key
+
 export type TTableMappingData = {
   id: string
   pathToNavigate: string

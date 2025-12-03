@@ -43,7 +43,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
       ensuredCustomOverridesUndefinedValues,
       ensuredCustomOverridesTrimLengths,
       ensuredCustomOverridesColWidths,
-      ensuredCustomOverridesDisableSortersAndFilters,
+      ensuredCustomOverridesCustomSortersAndFilters,
       ensuredCustomOverridesKeyTypeProps,
     } = parseColumnsOverrides({
       columnsOverridesData: customcolumnsoverrides,
@@ -122,7 +122,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
       ],
       additionalPrinterColumnsTrimLengths: [{ key: 'Name', value: 64 }, ...(ensuredCustomOverridesTrimLengths || [])],
       additionalPrinterColumnsColWidths: ensuredCustomOverridesColWidths,
-      additionalPrinterColumnsDisableSortersAndFilters: ensuredCustomOverridesDisableSortersAndFilters,
+      additionalPrinterColumnsCustomSortersAndFilters: ensuredCustomOverridesCustomSortersAndFilters,
       additionalPrinterColumnsKeyTypeProps: prepareKeyTypeProps({
         ensuredCustomOverridesKeyTypeProps,
         namespaceScopedWithoutNamespace,

@@ -5,7 +5,7 @@ import {
   TAdditionalPrinterColumnsUndefinedValues,
   TAdditionalPrinterColumnsTrimLengths,
   TAdditionalPrinterColumnsColWidths,
-  TAdditionalPrinterColumnsDisableSortersAndFilters,
+  TAdditionalPrinterColumnsCustomSortersAndFilters,
 } from 'src/localTypes/tableExtensions'
 
 export const isWithAdditionalPrinterColumns = (
@@ -94,10 +94,10 @@ export const isWithAdditionalPrinterColumnsColWidths = (
   return false
 }
 
-export const isWithAdditionalPrinterColumnsDisableSortersAndFilters = (
+export const isWithAdditionalPrinterColumnsCustomSortersAndFilters = (
   x: any,
 ): x is {
-  spec: { additionalPrinterColumnsDisableSortersAndFilters: TAdditionalPrinterColumnsDisableSortersAndFilters }
+  spec: { additionalPrinterColumnsCustomSortersAndFilters: TAdditionalPrinterColumnsCustomSortersAndFilters }
 } => {
   if (
     typeof x === 'object' &&
@@ -107,9 +107,9 @@ export const isWithAdditionalPrinterColumnsDisableSortersAndFilters = (
     typeof x.spec === 'object' &&
     !Array.isArray(x.spec) &&
     x.spec !== null &&
-    Array.isArray(x.spec.additionalPrinterColumnsDisableSortersAndFilters) &&
-    x.spec.additionalPrinterColumnsDisableSortersAndFilters.every(
-      (el: any) => typeof el === 'string' || typeof el === 'number',
+    Array.isArray(x.spec.additionalPrinterColumnsCustomSortersAndFilters) &&
+    x.spec.additionalPrinterColumnsCustomSortersAndFilters.every(
+      (el: any) => Object.keys(el).includes('key') && Object.keys(el).includes('type'),
     )
   ) {
     return true

@@ -11,6 +11,24 @@ type TArgs = {
 }
 
 /**
+ * We support extensions beyond vanilla OpenAPI v2:
+ * - custom schema "type" values (e.g. "multilineString")
+ * - custom flags (e.g. isAdditionalProperties)
+ *
+ * So we widen the type locally instead of fighting openapi-types.
+ */
+export type ExtendedSchemaObject = Omit<
+  OpenAPIV2.SchemaObject,
+  'type' | 'properties' | 'items' | 'additionalProperties'
+> & {
+  type?: string | string[]
+  properties?: Record<string, ExtendedSchemaObject>
+  items?: Omit<OpenAPIV2.ItemsObject, 'type'> & { type?: string | string[] }
+  additionalProperties?: boolean | ExtendedSchemaObject
+  isAdditionalProperties?: boolean
+}
+
+/**
  * Infer a simple OpenAPI-ish type from a JS value.
  */
 const guessTypeFromValue = (value: unknown): string => {
@@ -24,19 +42,19 @@ const guessTypeFromValue = (value: unknown): string => {
 
 /**
  * Build a schema node for an "additional" property based purely on its value.
- * NOTE: This is only used for keys that do NOT already exist in the swagger schema.
+ * NOTE: This is only used for keys that do NOT already exist in the swagger schema
+ * AND when the parent doesn't provide an additionalProperties schema object.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const buildSchemaFromValue = (value: any): OpenAPIV2.SchemaObject => {
+const buildSchemaFromValue = (value: any): ExtendedSchemaObject => {
   const t = guessTypeFromValue(value)
 
   if (t === 'array') {
     const first = Array.isArray(value) && value.length > 0 ? value[0] : undefined
     const itemType = first !== undefined ? guessTypeFromValue(first) : 'string'
 
-    const items: OpenAPIV2.ItemsObject = {
-      // ItemsObject.type is `string | string[] | undefined`, so a plain string is fine
-      type: itemType as OpenAPIV2.ItemsObject['type'],
+    const items: NonNullable<ExtendedSchemaObject['items']> = {
+      type: itemType,
     }
 
     return {
@@ -65,45 +83,64 @@ const buildSchemaFromValue = (value: any): OpenAPIV2.SchemaObject => {
 }
 
 /**
- * For every path with `additionalProperties: true`, look into the prefillValuesSchema
- * and create schema nodes ONLY for keys that do *not* already exist in the swagger
- * / mergedProperties schema.
+ * Build a schema node for an additional key using the parent's
+ * `additionalProperties` schema object as a template.
+ */
+const buildSchemaFromAdditionalPropertiesSchema = (
+  apSchema: ExtendedSchemaObject,
+  value: unknown,
+): ExtendedSchemaObject => {
+  const cloned = _.cloneDeep(apSchema)
+
+  return {
+    ...cloned,
+    default: value,
+    isAdditionalProperties: true,
+  }
+}
+
+/**
+ * For every path with `additionalProperties: true` (or schema),
+ * look into the prefillValuesSchema and create schema nodes ONLY for keys
+ * that do *not* already exist in the swagger / mergedProperties schema.
  *
  * This prevents overwriting explicit definitions like `spec.sshKeys` (array<string>)
- * with AP-generated junk like { type: "object", ... }.
+ * with AP-generated junk.
  */
 export const getPropertiesToMerge = ({
   pathsWithAdditionalProperties,
   prefillValuesSchema,
   mergedProperties,
-}: TArgs): { [name: string]: OpenAPIV2.SchemaObject } => {
+}: TArgs): { [name: string]: ExtendedSchemaObject } => {
   if (!prefillValuesSchema) return {}
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: any = {}
 
   for (const apPath of pathsWithAdditionalProperties) {
-    // e.g. apPath = ['spec']
     const valueUnderPath = _.get(prefillValuesSchema, apPath)
 
-    if (!valueUnderPath || typeof valueUnderPath !== 'object') {
+    // Important: additionalProperties parents must be plain objects, not arrays/null.
+    if (!valueUnderPath || typeof valueUnderPath !== 'object' || Array.isArray(valueUnderPath)) {
       continue
     }
 
-    // Existing schema at this AP parent (e.g. schema for `spec`)
-    const parentSchema = _.get(mergedProperties, [...apPath])
-    const existingProps: Record<string, OpenAPIV2.SchemaObject> = parentSchema?.properties || {}
+    const parentSchema = _.get(mergedProperties, [...apPath]) as ExtendedSchemaObject | undefined
+    const existingProps: Record<string, ExtendedSchemaObject> = parentSchema?.properties || {}
 
-    // For each key directly under this AP parent
+    const apSchema = parentSchema?.additionalProperties
+    const apSchemaObject = apSchema && typeof apSchema === 'object' ? (apSchema as ExtendedSchemaObject) : undefined
+
     for (const [key, val] of Object.entries(valueUnderPath as Record<string, unknown>)) {
-      // If the key already exists in the schema (e.g. "sshKeys" declared as array<string> in CRD),
-      // DO NOT treat it as an additionalProperties-derived field.
-      if (existingProps[key]) {
+      // Don't treat explicitly-defined schema keys as additionalProperties-derived fields.
+      if (key in existingProps) {
         continue
       }
 
-      // This is a truly "additional" key under an AP object -> build a schema for it
-      const schemaNode = buildSchemaFromValue(val)
+      // Prefer the parent's additionalProperties schema object when present.
+      const schemaNode = apSchemaObject
+        ? buildSchemaFromAdditionalPropertiesSchema(apSchemaObject, val)
+        : buildSchemaFromValue(val)
 
       const targetPath = [...apPath, 'properties', key]
       _.set(result, targetPath, schemaNode)

@@ -3,13 +3,15 @@ import { getClusterSwaggerPathByName, getClusterSwaggerPaths } from 'src/cache'
 import { TPrepareForm } from 'src/localTypes/forms'
 import { TPrepareFormRes } from 'src/localTypes/endpoints/forms'
 import { deepMerge } from 'src/utils/deepMerge'
-import { getSwaggerPathAndIsNamespaceScoped } from './getSwaggerPathAndIsNamespaceScoped'
-import { getBodyParametersSchema } from './getBodyParametersSchema'
-import { processOverrideSchema } from './processOverride'
-import { getPathsFromOverride } from './getPathsFromOverride'
-import { getPathsWithAdditionalProperties } from './getPathsWithAdditionalProperties'
-import { getPropertiesToMerge } from './getPropertiesToMerge'
-import { computePersistedAPPaths } from './computePersistedAPPaths'
+import {
+  getSwaggerPathAndIsNamespaceScoped,
+  getBodyParametersSchema,
+  processOverrideSchema,
+  getPathsWithAdditionalProperties,
+  getPropertiesToMerge,
+  computePersistedAPPaths,
+  getPathsFromOverride,
+} from './utils'
 
 export const prepare = async ({
   data,

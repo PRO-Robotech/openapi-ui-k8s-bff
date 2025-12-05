@@ -1,5 +1,4 @@
 import _ from 'lodash'
-import { OpenAPIV2 } from 'openapi-types'
 import { TJSON } from 'src/localTypes/JSON'
 import { checkIfApiInstanceNamespaceScoped, checkIfBuiltInInstanceNamespaceScoped } from 'src/utils/checkScope'
 

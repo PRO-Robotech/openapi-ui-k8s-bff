@@ -2,7 +2,7 @@ import _ from 'lodash'
 import { OpenAPIV2 } from 'openapi-types'
 import { TFormOverride } from 'src/localTypes/formExtensions'
 import { deepMerge } from 'src/utils/deepMerge'
-import { overwriteMatchingKeys } from './overwriteMatchingKeys'
+import { overwriteMatchingKeys } from './utils'
 
 export const processOverrideSchema = ({
   specificCustomOverrides,

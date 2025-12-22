@@ -10,7 +10,7 @@ Clients receive an **INITIAL** snapshot of resources (optionally paginated) and 
 1. **Parse query params** to know _what_ to list/watch (group, version, plural, namespace) and _how_ to filter (label/field selectors), plus pagination and resume-from-RV options.
 2. **List** the current items from the Kubernetes API (sorted newest-first).
 3. Send an **INITIAL** message with the items and pagination token.
-4. Start a **Watch** from the most recent `resourceVersion` (RV), forwarding each event to the client.
+4. Start a **Watch** from the most recent `resourceVersion` (RV), forwarding each event to the client via HTTP streaming.
 5. If the watch fails with **410 Gone** (RV expired), **re-list** to refresh RV and **restart** the watch.
 6. **Heartbeat** pings the client; if it doesn’t pong, the socket is terminated.
 7. Every **10 minutes**, rotate the watch proactively.
@@ -21,7 +21,7 @@ Clients receive an **INITIAL** snapshot of resources (optionally paginated) and 
 
 - **Type:** WebSocket (Express + `express-ws`)
 - **Handler:** `listWatchWebSocket(ws, req)`
-- **Kubernetes client:** `@kubernetes/client-node` `Watch` + shared Axios (`userKubeApi`) for list calls
+- **Kubernetes client:** shared Axios (`userKubeApi`) for list and HTTP streaming watch calls
 - **Auth/headers:** forwarded via `filterHeadersFromEnv(req)` (except in `DEVELOPMENT`)
 
 ---
@@ -136,7 +136,7 @@ On SCROLL failure, server sends:
 
 - **Headers** forwarded only if allowed by environment via `filterHeadersFromEnv`.
   In `DEVELOPMENT`, no forwarding (use local config).
-- **Kubernetes client** is created **per connection** with `createUserKubeClient(headers)`.
+- **Kubernetes API access** uses `userKubeApi` with forwarded headers for both list and streaming watch calls.
 
 > Ensure your reverse proxy and cluster RBAC permit the requested List/Watch verbs for the target resources.
 

@@ -3,6 +3,7 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { httpsAgent, baseUrl } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
+import { toWebSocketUrl } from 'src/utils/toWebSocketUrl'
 
 export type TMessage = {
   type: string
@@ -38,6 +39,7 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
         `&command=${encodeURIComponent('-c')}`,
         `&command=${encodeURIComponent(wrapper)}`,
       ].join('')
+      const execWsUrl = toWebSocketUrl(execUrl)
 
       console.log(
         `[${new Date().toISOString()}]: WebsocketPod: Connecting with user headers ${JSON.stringify(
@@ -45,8 +47,8 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
         )}`,
       )
       try {
-        const podWs = new WebSocket(execUrl, {
-          agent: httpsAgent,
+        const podWs = new WebSocket(execWsUrl, {
+          ...(execWsUrl.startsWith('wss://') ? { agent: httpsAgent } : {}),
           headers: {
             ...(DEVELOPMENT ? {} : filteredHeaders),
           },

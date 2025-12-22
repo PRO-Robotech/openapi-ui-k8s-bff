@@ -11,6 +11,24 @@ import {
   getSysadminPod,
 } from './podProfiles'
 
+type TPodTemplate = {
+  apiVersion?: string
+  kind?: string
+  metadata?: {
+    name?: string
+    namespace?: string
+    labels?: Record<string, string>
+    annotations?: Record<string, string>
+  }
+  template?: {
+    metadata?: {
+      labels?: Record<string, string>
+      annotations?: Record<string, string>
+    }
+    spec?: Record<string, any>
+  }
+}
+
 export const generateRandomLetters = (): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz'
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -102,6 +120,67 @@ export const getPodByProfile = ({
     containerImage,
     containerName,
   })
+}
+
+export const getPodFromPodTemplate = ({
+  podTemplate,
+  namespace,
+  podName,
+  nodeName,
+  containerName,
+}: {
+  podTemplate: TPodTemplate
+  namespace: string
+  podName: string
+  nodeName: string
+  containerName: string
+}): Record<string, any> => {
+  const specFromTemplate = podTemplate?.template?.spec
+  if (!specFromTemplate || typeof specFromTemplate !== 'object') {
+    throw new Error('PodTemplate.template.spec is missing or invalid')
+  }
+
+  const containers = (specFromTemplate as any).containers
+  if (!Array.isArray(containers) || containers.length === 0) {
+    throw new Error('PodTemplate.template.spec.containers is missing')
+  }
+  if (containers.length !== 1) {
+    throw new Error('Only PodTemplates with exactly 1 container are supported')
+  }
+
+  const image = containers[0]?.image
+  if (typeof image !== 'string' || image.length === 0) {
+    throw new Error('PodTemplate container image is missing')
+  }
+
+  // Keep template-controlled fields, inject runtime fields.
+  const templateMeta = podTemplate?.template?.metadata ?? {}
+  const podSpec = { ...(specFromTemplate as any) }
+
+  // Enforce runtime placement & stable container name for exec.
+  podSpec.nodeName = nodeName
+  podSpec.containers = [{ ...containers[0], name: containerName }]
+
+  // If template forgets restartPolicy, default to Never (debug pods are ephemeral).
+  if (!podSpec.restartPolicy) {
+    podSpec.restartPolicy = 'Never'
+  }
+
+  // Remove any attempt to pin namespace/name/node via template.
+  // (metadata will be replaced below anyway; this is just defensive)
+  delete (podSpec as any).hostname
+
+  return {
+    apiVersion: 'v1',
+    kind: 'Pod',
+    metadata: {
+      name: podName,
+      namespace,
+      ...(templateMeta.labels ? { labels: templateMeta.labels } : {}),
+      ...(templateMeta.annotations ? { annotations: templateMeta.annotations } : {}),
+    },
+    spec: podSpec,
+  }
 }
 
 // export const getPodByProfile = ({

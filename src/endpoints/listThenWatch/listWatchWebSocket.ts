@@ -91,7 +91,9 @@ const safeDecode = (s?: string) => {
  * It rotates watches periodically and on failures, handling 410 by re-listing.
  */
 export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket, req: Request) => {
-  console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection (list-then-watch)`)
+  console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection (list-then-watch)`, {
+    url: req.url,
+  })
 
   // Pass-through only the safe, whitelisted headers (e.g. auth/cookie) based on env.
   const headers: Record<string, string | string[] | undefined> = filterHeadersFromEnv(req)

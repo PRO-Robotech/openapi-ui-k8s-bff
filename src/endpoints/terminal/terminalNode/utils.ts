@@ -55,18 +55,17 @@ function assertValidPodTemplateSpec(spec: unknown): asserts spec is TPodSpec {
     console.error('[getPodFromPodTemplate] PodTemplate.template.spec.containers is missing or empty', { spec })
     throw new Error('PodTemplate.template.spec.containers is missing')
   }
+}
 
-  if (containers.length !== 1) {
-    console.error('[getPodFromPodTemplate] Only PodTemplates with exactly 1 container are supported', {
-      containerCount: containers.length,
+function assertContainerExists(containers: TContainer[], containerName: string): void {
+  const exists = containers.some(c => c.name === containerName)
+  if (!exists) {
+    const availableNames = containers.map(c => c.name).join(', ')
+    console.error('[getPodFromPodTemplate] Container not found in PodTemplate', {
+      requestedContainer: containerName,
+      availableContainers: availableNames,
     })
-    throw new Error('Only PodTemplates with exactly 1 container are supported')
-  }
-
-  const image = (containers[0] as TContainer)?.image
-  if (typeof image !== 'string' || image.length === 0) {
-    console.error('[getPodFromPodTemplate] PodTemplate container image is missing', { container: containers[0] })
-    throw new Error('PodTemplate container image is missing')
+    throw new Error(`Container '${containerName}' not found in PodTemplate. Available: ${availableNames}`)
   }
 }
 
@@ -179,12 +178,13 @@ export const getPodFromPodTemplate = ({
   const specFromTemplate = podTemplate?.template?.spec
 
   assertValidPodTemplateSpec(specFromTemplate)
+  assertContainerExists(specFromTemplate.containers, containerName)
 
   const templateMeta = podTemplate?.template?.metadata ?? {}
   const podSpec: TPodSpec = { ...specFromTemplate }
 
   podSpec.nodeName = nodeName
-  podSpec.containers = [{ ...specFromTemplate.containers[0], name: containerName }]
+  // Keep original container names from PodTemplate (don't overwrite)
 
   if (!podSpec.restartPolicy) {
     podSpec.restartPolicy = 'Never'

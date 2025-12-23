@@ -34,10 +34,13 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       const profile = message.payload.profile
       const podTemplateName = message.payload.podTemplateName
       const podTemplateNamespace = message.payload.podTemplateNamespace
+      const customContainerName = message.payload.containerName
       const randomLetters = generateRandomLetters()
       const namespaceName = `debugger-${nodeName}-bff-${randomLetters}`
       const podName = `debugger-${nodeName}-bff-${randomLetters}`
-      const container = 'debugger'
+      const container = typeof customContainerName === 'string' && customContainerName.length > 0
+        ? customContainerName
+        : 'debugger'
 
       const cleanUp = async () => {
         try {

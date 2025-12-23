@@ -1,4 +1,4 @@
-import * as k8s from '@kubernetes/client-node'
+import { TEventsV1Event } from './types'
 
 // Add these helpers near the top (e.g., under isGone410)
 const toMillis = (t?: unknown): number => {
@@ -11,7 +11,7 @@ const toMillis = (t?: unknown): number => {
   return 0
 }
 
-export const eventSortKey = (ev: k8s.EventsV1Event): number => {
+export const eventSortKey = (ev: TEventsV1Event): number => {
   // events.k8s.io/v1 prefers eventTime; fall back to series.lastObservedTime, then creationTimestamp
   return Math.max(
     toMillis((ev as any).eventTime),

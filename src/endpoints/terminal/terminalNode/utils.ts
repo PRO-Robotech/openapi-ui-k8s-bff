@@ -29,6 +29,47 @@ type TPodTemplate = {
   }
 }
 
+type TContainer = {
+  name?: string
+  image?: string
+  [key: string]: unknown
+}
+
+type TPodSpec = {
+  containers: TContainer[]
+  nodeName?: string
+  restartPolicy?: string
+  [key: string]: unknown
+}
+
+function assertValidPodTemplateSpec(spec: unknown): asserts spec is TPodSpec {
+  if (!spec || typeof spec !== 'object') {
+    console.error('[getPodFromPodTemplate] PodTemplate.template.spec is missing or invalid', { spec })
+    throw new Error('PodTemplate.template.spec is missing or invalid')
+  }
+
+  const specObj = spec as Record<string, unknown>
+  const containers = specObj.containers
+
+  if (!Array.isArray(containers) || containers.length === 0) {
+    console.error('[getPodFromPodTemplate] PodTemplate.template.spec.containers is missing or empty', { spec })
+    throw new Error('PodTemplate.template.spec.containers is missing')
+  }
+
+  if (containers.length !== 1) {
+    console.error('[getPodFromPodTemplate] Only PodTemplates with exactly 1 container are supported', {
+      containerCount: containers.length,
+    })
+    throw new Error('Only PodTemplates with exactly 1 container are supported')
+  }
+
+  const image = (containers[0] as TContainer)?.image
+  if (typeof image !== 'string' || image.length === 0) {
+    console.error('[getPodFromPodTemplate] PodTemplate container image is missing', { container: containers[0] })
+    throw new Error('PodTemplate container image is missing')
+  }
+}
+
 export const generateRandomLetters = (): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz'
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -136,39 +177,20 @@ export const getPodFromPodTemplate = ({
   containerName: string
 }): Record<string, any> => {
   const specFromTemplate = podTemplate?.template?.spec
-  if (!specFromTemplate || typeof specFromTemplate !== 'object') {
-    throw new Error('PodTemplate.template.spec is missing or invalid')
-  }
 
-  const containers = (specFromTemplate as any).containers
-  if (!Array.isArray(containers) || containers.length === 0) {
-    throw new Error('PodTemplate.template.spec.containers is missing')
-  }
-  if (containers.length !== 1) {
-    throw new Error('Only PodTemplates with exactly 1 container are supported')
-  }
+  assertValidPodTemplateSpec(specFromTemplate)
 
-  const image = containers[0]?.image
-  if (typeof image !== 'string' || image.length === 0) {
-    throw new Error('PodTemplate container image is missing')
-  }
-
-  // Keep template-controlled fields, inject runtime fields.
   const templateMeta = podTemplate?.template?.metadata ?? {}
-  const podSpec = { ...(specFromTemplate as any) }
+  const podSpec: TPodSpec = { ...specFromTemplate }
 
-  // Enforce runtime placement & stable container name for exec.
   podSpec.nodeName = nodeName
-  podSpec.containers = [{ ...containers[0], name: containerName }]
+  podSpec.containers = [{ ...specFromTemplate.containers[0], name: containerName }]
 
-  // If template forgets restartPolicy, default to Never (debug pods are ephemeral).
   if (!podSpec.restartPolicy) {
     podSpec.restartPolicy = 'Never'
   }
 
-  // Remove any attempt to pin namespace/name/node via template.
-  // (metadata will be replaced below anyway; this is just defensive)
-  delete (podSpec as any).hostname
+  delete podSpec.hostname
 
   return {
     apiVersion: 'v1',

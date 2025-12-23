@@ -33,6 +33,7 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       const nodeName = message.payload.nodeName
       const profile = message.payload.profile
       const podTemplateName = message.payload.podTemplateName
+      const podTemplateNamespace = message.payload.podTemplateNamespace
       const randomLetters = generateRandomLetters()
       const namespaceName = `debugger-${nodeName}-bff-${randomLetters}`
       const podName = `debugger-${nodeName}-bff-${randomLetters}`
@@ -133,9 +134,14 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_CREATING }))
 
       const podBody = await (async () => {
-        if (typeof podTemplateName === 'string' && podTemplateName.length > 0) {
+        if (
+          typeof podTemplateName === 'string' &&
+          podTemplateName.length > 0 &&
+          typeof podTemplateNamespace === 'string' &&
+          podTemplateNamespace.length > 0
+        ) {
           const { data: podTemplate } = await userKubeApi.get<any>(
-            `/api/v1/namespaces/incloud-web/podtemplates/${encodeURIComponent(podTemplateName)}`,
+            `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(podTemplateName)}`,
             {
               headers: {
                 ...(DEVELOPMENT ? {} : filteredHeaders),

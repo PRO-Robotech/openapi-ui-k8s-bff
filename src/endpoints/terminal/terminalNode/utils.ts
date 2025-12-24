@@ -42,10 +42,14 @@ type TPodSpec = {
   [key: string]: unknown
 }
 
-function assertValidPodTemplateSpec(spec: unknown): asserts spec is TPodSpec {
+export type TValidationResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string }
+
+const validatePodTemplateSpec = (spec: unknown): TValidationResult<TPodSpec> => {
   if (!spec || typeof spec !== 'object') {
     console.error('[getPodFromPodTemplate] PodTemplate.template.spec is missing or invalid', { spec })
-    throw new Error('PodTemplate.template.spec is missing or invalid')
+    return { success: false, error: 'PodTemplate.template.spec is missing or invalid' }
   }
 
   const specObj = spec as Record<string, unknown>
@@ -53,11 +57,13 @@ function assertValidPodTemplateSpec(spec: unknown): asserts spec is TPodSpec {
 
   if (!Array.isArray(containers) || containers.length === 0) {
     console.error('[getPodFromPodTemplate] PodTemplate.template.spec.containers is missing or empty', { spec })
-    throw new Error('PodTemplate.template.spec.containers is missing')
+    return { success: false, error: 'PodTemplate.template.spec.containers is missing or empty' }
   }
+
+  return { success: true, data: spec as TPodSpec }
 }
 
-function assertContainerExists(containers: TContainer[], containerName: string): void {
+const validateContainerExists = (containers: TContainer[], containerName: string): TValidationResult<true> => {
   const exists = containers.some(c => c.name === containerName)
   if (!exists) {
     const availableNames = containers.map(c => c.name).join(', ')
@@ -65,8 +71,9 @@ function assertContainerExists(containers: TContainer[], containerName: string):
       requestedContainer: containerName,
       availableContainers: availableNames,
     })
-    throw new Error(`Container '${containerName}' not found in PodTemplate. Available: ${availableNames}`)
+    return { success: false, error: `Container '${containerName}' not found in PodTemplate. Available: ${availableNames}` }
   }
+  return { success: true, data: true }
 }
 
 export const generateRandomLetters = (): string => {
@@ -174,14 +181,21 @@ export const getPodFromPodTemplate = ({
   podName: string
   nodeName: string
   containerName: string
-}): Record<string, any> => {
+}): TValidationResult<Record<string, unknown>> => {
   const specFromTemplate = podTemplate?.template?.spec
 
-  assertValidPodTemplateSpec(specFromTemplate)
-  assertContainerExists(specFromTemplate.containers, containerName)
+  const specValidation = validatePodTemplateSpec(specFromTemplate)
+  if (!specValidation.success) {
+    return specValidation
+  }
+
+  const containerValidation = validateContainerExists(specValidation.data.containers, containerName)
+  if (!containerValidation.success) {
+    return containerValidation
+  }
 
   const templateMeta = podTemplate?.template?.metadata ?? {}
-  const podSpec: TPodSpec = { ...specFromTemplate }
+  const podSpec: TPodSpec = { ...specValidation.data }
 
   podSpec.nodeName = nodeName
   // Keep original container names from PodTemplate (don't overwrite)
@@ -193,15 +207,18 @@ export const getPodFromPodTemplate = ({
   delete podSpec.hostname
 
   return {
-    apiVersion: 'v1',
-    kind: 'Pod',
-    metadata: {
-      name: podName,
-      namespace,
-      ...(templateMeta.labels ? { labels: templateMeta.labels } : {}),
-      ...(templateMeta.annotations ? { annotations: templateMeta.annotations } : {}),
+    success: true,
+    data: {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: podName,
+        namespace,
+        ...(templateMeta.labels ? { labels: templateMeta.labels } : {}),
+        ...(templateMeta.annotations ? { annotations: templateMeta.annotations } : {}),
+      },
+      spec: podSpec,
     },
-    spec: podSpec,
   }
 }
 

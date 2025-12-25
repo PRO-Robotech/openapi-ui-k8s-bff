@@ -4,8 +4,15 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT, DEBUG_CONTAINER_IMAGE } from 'src/constants/envs'
 import { httpsAgent, baseUrl, userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
-import { generateRandomLetters, getNamespaceBody, getPodByProfile, getPodFromPodTemplate, waitForContainerReady } from './utils'
+import {
+  generateRandomLetters,
+  getNamespaceBody,
+  getPodByProfile,
+  getPodFromPodTemplate,
+  waitForContainerReady,
+} from './utils'
 import { SHUTDOWN_MESSAGES, WARMUP_MESSAGES } from './constants'
+import { TPodTemplate } from './types'
 
 export type TMessage = {
   type: string
@@ -37,9 +44,8 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       const randomLetters = generateRandomLetters()
       const namespaceName = `debugger-${nodeName}-bff-${randomLetters}`
       const podName = `debugger-${nodeName}-bff-${randomLetters}`
-      const container = typeof customContainerName === 'string' && customContainerName.length > 0
-        ? customContainerName
-        : 'debugger'
+      const container =
+        typeof customContainerName === 'string' && customContainerName.length > 0 ? customContainerName : 'debugger'
 
       const cleanUp = async () => {
         try {
@@ -144,8 +150,10 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       let podBody: Record<string, unknown> | null = null
 
       if (isUsingCustomTemplate) {
-        const { data: podTemplate } = await userKubeApi.get(
-          `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(podTemplateName)}`,
+        const { data: podTemplate } = await userKubeApi.get<TPodTemplate>(
+          `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(
+            podTemplateName,
+          )}`,
           {
             headers: {
               ...(DEVELOPMENT ? {} : filteredHeaders),
@@ -155,7 +163,7 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         )
 
         const podTemplateResult = getPodFromPodTemplate({
-          podTemplate: podTemplate as Parameters<typeof getPodFromPodTemplate>[0]['podTemplate'],
+          podTemplate: podTemplate,
           namespace: namespaceName,
           podName,
           nodeName,
@@ -163,8 +171,17 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         })
 
         if (!podTemplateResult.success) {
-          console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate validation failed: ${podTemplateResult.error}`)
-          ws.send(JSON.stringify({ type: 'warmup', payload: `${WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR}: ${podTemplateResult.error}` }))
+          console.error(
+            `[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate validation failed: ${
+              podTemplateResult.error
+            }`,
+          )
+          ws.send(
+            JSON.stringify({
+              type: 'warmup',
+              payload: `${WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR}: ${podTemplateResult.error}`,
+            }),
+          )
           await cleanUp()
           ws.close()
           return

@@ -1,6 +1,6 @@
 import { AxiosRequestConfig } from 'axios'
 import { userKubeApi } from 'src/constants/httpAgent'
-import { TProfileType } from './types'
+import { TProfileType, TPodTemplate, TContainer, TPodSpec, TValidationResult } from './types'
 import { CONTAINER_WAITING } from './constants'
 import {
   getLegacyPod,
@@ -11,68 +11,77 @@ import {
   getSysadminPod,
 } from './podProfiles'
 
-type TPodTemplate = {
-  apiVersion?: string
-  kind?: string
-  metadata?: {
-    name?: string
-    namespace?: string
-    labels?: Record<string, string>
-    annotations?: Record<string, string>
+const isObjectRecord = (v: unknown): v is Record<string, unknown> => {
+  return typeof v === 'object' && v !== null
+}
+
+export const isTContainer = (v: unknown): v is TContainer => {
+  if (!isObjectRecord(v)) {
+    return false
   }
-  template?: {
-    metadata?: {
-      labels?: Record<string, string>
-      annotations?: Record<string, string>
-    }
-    spec?: Record<string, any>
+
+  const name = v['name']
+  if (name !== undefined && typeof name !== 'string') {
+    return false
   }
+
+  const image = v['image']
+  if (image !== undefined && typeof image !== 'string') {
+    return false
+  }
+
+  return true
 }
 
-type TContainer = {
-  name?: string
-  image?: string
-  [key: string]: unknown
-}
+export const isTPodSpec = (v: unknown): v is TPodSpec => {
+  if (!isObjectRecord(v)) {
+    return false
+  }
 
-type TPodSpec = {
-  containers: TContainer[]
-  nodeName?: string
-  restartPolicy?: string
-  [key: string]: unknown
-}
+  const containers = v['containers']
+  if (!Array.isArray(containers)) {
+    return false
+  }
+  if (!containers.every(isTContainer)) {
+    return false
+  }
 
-export type TValidationResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string }
+  const nodeName = v['nodeName']
+  if (nodeName !== undefined && typeof nodeName !== 'string') {
+    return false
+  }
+
+  const restartPolicy = v['restartPolicy']
+  if (restartPolicy !== undefined && typeof restartPolicy !== 'string') {
+    return false
+  }
+
+  return true
+}
 
 const validatePodTemplateSpec = (spec: unknown): TValidationResult<TPodSpec> => {
-  if (!spec || typeof spec !== 'object') {
-    console.error('[getPodFromPodTemplate] PodTemplate.template.spec is missing or invalid', { spec })
-    return { success: false, error: 'PodTemplate.template.spec is missing or invalid' }
+  if (isTPodSpec(spec)) {
+    return { success: true, data: spec }
   }
 
-  const specObj = spec as Record<string, unknown>
-  const containers = specObj.containers
-
-  if (!Array.isArray(containers) || containers.length === 0) {
-    console.error('[getPodFromPodTemplate] PodTemplate.template.spec.containers is missing or empty', { spec })
-    return { success: false, error: 'PodTemplate.template.spec.containers is missing or empty' }
-  }
-
-  return { success: true, data: spec as TPodSpec }
+  return { success: false, error: 'Spec in invalid' }
 }
 
 const validateContainerExists = (containers: TContainer[], containerName: string): TValidationResult<true> => {
   const exists = containers.some(c => c.name === containerName)
+
   if (!exists) {
     const availableNames = containers.map(c => c.name).join(', ')
     console.error('[getPodFromPodTemplate] Container not found in PodTemplate', {
       requestedContainer: containerName,
       availableContainers: availableNames,
     })
-    return { success: false, error: `Container '${containerName}' not found in PodTemplate. Available: ${availableNames}` }
+    return {
+      success: false,
+      error: `Container '${containerName}' not found in PodTemplate. Available: ${availableNames}`,
+    }
   }
+
   return { success: true, data: true }
 }
 

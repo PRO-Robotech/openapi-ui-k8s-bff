@@ -40,4 +40,3 @@ dist
 .vscode-test
 
 .env
-.env.options

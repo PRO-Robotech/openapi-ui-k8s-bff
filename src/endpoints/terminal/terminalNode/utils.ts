@@ -29,6 +29,53 @@ type TPodTemplate = {
   }
 }
 
+type TContainer = {
+  name?: string
+  image?: string
+  [key: string]: unknown
+}
+
+type TPodSpec = {
+  containers: TContainer[]
+  nodeName?: string
+  restartPolicy?: string
+  [key: string]: unknown
+}
+
+export type TValidationResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string }
+
+const validatePodTemplateSpec = (spec: unknown): TValidationResult<TPodSpec> => {
+  if (!spec || typeof spec !== 'object') {
+    console.error('[getPodFromPodTemplate] PodTemplate.template.spec is missing or invalid', { spec })
+    return { success: false, error: 'PodTemplate.template.spec is missing or invalid' }
+  }
+
+  const specObj = spec as Record<string, unknown>
+  const containers = specObj.containers
+
+  if (!Array.isArray(containers) || containers.length === 0) {
+    console.error('[getPodFromPodTemplate] PodTemplate.template.spec.containers is missing or empty', { spec })
+    return { success: false, error: 'PodTemplate.template.spec.containers is missing or empty' }
+  }
+
+  return { success: true, data: spec as TPodSpec }
+}
+
+const validateContainerExists = (containers: TContainer[], containerName: string): TValidationResult<true> => {
+  const exists = containers.some(c => c.name === containerName)
+  if (!exists) {
+    const availableNames = containers.map(c => c.name).join(', ')
+    console.error('[getPodFromPodTemplate] Container not found in PodTemplate', {
+      requestedContainer: containerName,
+      availableContainers: availableNames,
+    })
+    return { success: false, error: `Container '${containerName}' not found in PodTemplate. Available: ${availableNames}` }
+  }
+  return { success: true, data: true }
+}
+
 export const generateRandomLetters = (): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz'
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -134,52 +181,44 @@ export const getPodFromPodTemplate = ({
   podName: string
   nodeName: string
   containerName: string
-}): Record<string, any> => {
+}): TValidationResult<Record<string, unknown>> => {
   const specFromTemplate = podTemplate?.template?.spec
-  if (!specFromTemplate || typeof specFromTemplate !== 'object') {
-    throw new Error('PodTemplate.template.spec is missing or invalid')
+
+  const specValidation = validatePodTemplateSpec(specFromTemplate)
+  if (!specValidation.success) {
+    return specValidation
   }
 
-  const containers = (specFromTemplate as any).containers
-  if (!Array.isArray(containers) || containers.length === 0) {
-    throw new Error('PodTemplate.template.spec.containers is missing')
-  }
-  if (containers.length !== 1) {
-    throw new Error('Only PodTemplates with exactly 1 container are supported')
+  const containerValidation = validateContainerExists(specValidation.data.containers, containerName)
+  if (!containerValidation.success) {
+    return containerValidation
   }
 
-  const image = containers[0]?.image
-  if (typeof image !== 'string' || image.length === 0) {
-    throw new Error('PodTemplate container image is missing')
-  }
-
-  // Keep template-controlled fields, inject runtime fields.
   const templateMeta = podTemplate?.template?.metadata ?? {}
-  const podSpec = { ...(specFromTemplate as any) }
+  const podSpec: TPodSpec = { ...specValidation.data }
 
-  // Enforce runtime placement & stable container name for exec.
   podSpec.nodeName = nodeName
-  podSpec.containers = [{ ...containers[0], name: containerName }]
+  // Keep original container names from PodTemplate (don't overwrite)
 
-  // If template forgets restartPolicy, default to Never (debug pods are ephemeral).
   if (!podSpec.restartPolicy) {
     podSpec.restartPolicy = 'Never'
   }
 
-  // Remove any attempt to pin namespace/name/node via template.
-  // (metadata will be replaced below anyway; this is just defensive)
-  delete (podSpec as any).hostname
+  delete podSpec.hostname
 
   return {
-    apiVersion: 'v1',
-    kind: 'Pod',
-    metadata: {
-      name: podName,
-      namespace,
-      ...(templateMeta.labels ? { labels: templateMeta.labels } : {}),
-      ...(templateMeta.annotations ? { annotations: templateMeta.annotations } : {}),
+    success: true,
+    data: {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: podName,
+        namespace,
+        ...(templateMeta.labels ? { labels: templateMeta.labels } : {}),
+        ...(templateMeta.annotations ? { annotations: templateMeta.annotations } : {}),
+      },
+      spec: podSpec,
     },
-    spec: podSpec,
   }
 }
 

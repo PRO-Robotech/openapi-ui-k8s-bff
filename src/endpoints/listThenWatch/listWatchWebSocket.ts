@@ -9,8 +9,6 @@
 import { Request } from 'express'
 import WebSocket from 'ws'
 import { WebsocketRequestHandler } from 'express-ws'
-import * as k8s from '@kubernetes/client-node'
-import { createUserKubeClient } from 'src/constants/kubeClients'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
@@ -95,9 +93,6 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     url: req.url,
   })
 
-  // Pass-through only the safe, whitelisted headers (e.g. auth/cookie) based on env.
-  const headers: Record<string, string | string[] | undefined> = filterHeadersFromEnv(req)
-
   // --- Parse and normalize query params ---
   const reqUrl = new URL(req.url || '', `http://${req.headers.host}`)
   const namespace = reqUrl.searchParams.get('namespace') || undefined
@@ -132,13 +127,6 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     sinceRV,
   })
   console.log(`[${new Date().toISOString()}]: Selectors:`, { fieldSelector, labelSelector })
-
-  // Construct a per-user kube client (auth taken from filtered headers).
-  const userKube = createUserKubeClient(headers)
-  console.log(`[${new Date().toISOString()}]: Created Kubernetes client for user`)
-
-  // Watch helper from k8s client
-  const watch = new k8s.Watch(userKube.kubeConfig)
 
   // --- Connection + watch state ---
   let closed = false
@@ -272,7 +260,7 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     }
   }
 
-  // -------- WATCH HANDLERS --------
+  // -------- WATCH HANDLERS (HTTP STREAM) --------
 
   /**
    * k8s watch event callback. Updates lastRV on BOOKMARK/ADDED/MODIFIED/DELETED and forwards to client.
@@ -334,6 +322,7 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
 
   /**
    * (Re)start a watch against the resource path using the latest known resourceVersion (if any).
+   * Uses HTTP streaming per Kubernetes API docs and parses line-delimited JSON.
    * Ensures any existing watch is aborted before starting a new one.
    */
   const startWatch = async (): Promise<void> => {
@@ -355,33 +344,87 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
         abortCurrentWatch = null
       }
 
-      // Assemble watch options; enable bookmarks for periodic RV updates.
-      const watchOpts: any = {
-        fieldSelector,
-        labelSelector,
-        allowWatchBookmarks: true,
-      }
+      // Assemble watch query; enable bookmarks for periodic RV updates.
+      const sp = new URLSearchParams()
+      sp.set('watch', '1')
+      sp.set('allowWatchBookmarks', 'true')
+      if (fieldSelector) sp.set('fieldSelector', fieldSelector)
+      if (labelSelector) sp.set('labelSelector', labelSelector)
       if (lastRV) {
-        watchOpts.resourceVersion = lastRV
+        sp.set('resourceVersion', lastRV)
         // resourceVersionMatch 'NotOlderThan' isn't supported by all watch servers here, so omitted.
       }
+      const qs = sp.toString()
+      console.log(`[${new Date().toISOString()}]: Watch query:`, qs)
 
-      console.log(`[${new Date().toISOString()}]: Watch options:`, watchOpts)
-      const reqObj = await watch.watch(watchPath, watchOpts, onEvent, onError)
-      console.log(`[${new Date().toISOString()}]: Watch established`)
+      const controller = new AbortController()
+      const filteredHeaders = filterHeadersFromEnv(req)
 
-      // Save aborter that tries both abort() and destroy() safely.
+      const response = await userKubeApi.get(`${watchPath}?${qs}`, {
+        headers: {
+          ...(DEVELOPMENT ? {} : filteredHeaders),
+          'Content-Type': 'application/json',
+        },
+        responseType: 'stream',
+        timeout: 0, // watch streams are long-lived
+        signal: controller.signal,
+      })
+
+      console.log(`[${new Date().toISOString()}]: Watch stream established`)
+
+      const stream = response.data as NodeJS.ReadableStream
+      let buffer = ''
+
+      const onStreamData = (chunk: Buffer | string) => {
+        buffer += chunk.toString()
+        let idx = buffer.indexOf('\n')
+        while (idx >= 0) {
+          const line = buffer.slice(0, idx).trim()
+          buffer = buffer.slice(idx + 1)
+          idx = buffer.indexOf('\n')
+          if (!line) continue
+          try {
+            const evt = JSON.parse(line)
+            const phase = evt?.type as string | undefined
+            const obj = evt?.object
+            if (phase === 'ERROR') {
+              void onError(obj ?? evt)
+              continue
+            }
+            if (phase) {
+              onEvent(phase, obj)
+            }
+          } catch (error) {
+            console.warn(`[${new Date().toISOString()}]: Failed to parse watch event line`, {
+              message: error instanceof Error ? error.message : String(error),
+              line,
+            })
+          }
+        }
+      }
+
+      const onStreamError = (error: unknown) => {
+        console.error(`[${new Date().toISOString()}]: Watch stream error:`, error)
+        void onError(error)
+      }
+
+      const onStreamEnd = () => {
+        console.warn(`[${new Date().toISOString()}]: Watch stream ended`)
+        void onError(new Error('watch stream ended'))
+      }
+
+      stream.on('data', onStreamData)
+      stream.on('error', onStreamError)
+      stream.on('end', onStreamEnd)
+      stream.on('close', onStreamEnd)
+
+      // Save aborter that stops the stream and aborts the request.
       abortCurrentWatch = () => {
         console.log(`[${new Date().toISOString()}]: Aborting watch...`)
         try {
-          ;(reqObj as any)?.abort?.()
+          controller.abort()
         } catch {
           console.warn(`[${new Date().toISOString()}]: Abort failed`)
-        }
-        try {
-          ;(reqObj as any)?.destroy?.()
-        } catch {
-          console.warn(`[${new Date().toISOString()}]: Destroy failed`)
         }
       }
     } catch (error) {

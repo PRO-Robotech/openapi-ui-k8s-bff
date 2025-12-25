@@ -1,6 +1,6 @@
 import { AxiosRequestConfig } from 'axios'
 import { userKubeApi } from 'src/constants/httpAgent'
-import { TProfileType } from './types'
+import { TProfileType, TPodTemplate, TContainer, TPodSpec, TValidationResult } from './types'
 import { CONTAINER_WAITING } from './constants'
 import {
   getLegacyPod,
@@ -10,6 +10,80 @@ import {
   getRestrictedPod,
   getSysadminPod,
 } from './podProfiles'
+
+const isObjectRecord = (v: unknown): v is Record<string, unknown> => {
+  return typeof v === 'object' && v !== null
+}
+
+export const isTContainer = (v: unknown): v is TContainer => {
+  if (!isObjectRecord(v)) {
+    return false
+  }
+
+  const name = v['name']
+  if (name !== undefined && typeof name !== 'string') {
+    return false
+  }
+
+  const image = v['image']
+  if (image !== undefined && typeof image !== 'string') {
+    return false
+  }
+
+  return true
+}
+
+export const isTPodSpec = (v: unknown): v is TPodSpec => {
+  if (!isObjectRecord(v)) {
+    return false
+  }
+
+  const containers = v['containers']
+  if (!Array.isArray(containers)) {
+    return false
+  }
+  if (!containers.every(isTContainer)) {
+    return false
+  }
+
+  const nodeName = v['nodeName']
+  if (nodeName !== undefined && typeof nodeName !== 'string') {
+    return false
+  }
+
+  const restartPolicy = v['restartPolicy']
+  if (restartPolicy !== undefined && typeof restartPolicy !== 'string') {
+    return false
+  }
+
+  return true
+}
+
+const validatePodTemplateSpec = (spec: unknown): TValidationResult<TPodSpec> => {
+  if (isTPodSpec(spec)) {
+    return { success: true, data: spec }
+  }
+
+  return { success: false, error: 'Spec in invalid' }
+}
+
+const validateContainerExists = (containers: TContainer[], containerName: string): TValidationResult<true> => {
+  const exists = containers.some(c => c.name === containerName)
+
+  if (!exists) {
+    const availableNames = containers.map(c => c.name).join(', ')
+    console.error('[getPodFromPodTemplate] Container not found in PodTemplate', {
+      requestedContainer: containerName,
+      availableContainers: availableNames,
+    })
+    return {
+      success: false,
+      error: `Container '${containerName}' not found in PodTemplate. Available: ${availableNames}`,
+    }
+  }
+
+  return { success: true, data: true }
+}
 
 export const generateRandomLetters = (): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz'
@@ -102,6 +176,59 @@ export const getPodByProfile = ({
     containerImage,
     containerName,
   })
+}
+
+export const getPodFromPodTemplate = ({
+  podTemplate,
+  namespace,
+  podName,
+  nodeName,
+  containerName,
+}: {
+  podTemplate: TPodTemplate
+  namespace: string
+  podName: string
+  nodeName: string
+  containerName: string
+}): TValidationResult<Record<string, unknown>> => {
+  const specFromTemplate = podTemplate?.template?.spec
+
+  const specValidation = validatePodTemplateSpec(specFromTemplate)
+  if (!specValidation.success) {
+    return specValidation
+  }
+
+  const containerValidation = validateContainerExists(specValidation.data.containers, containerName)
+  if (!containerValidation.success) {
+    return containerValidation
+  }
+
+  const templateMeta = podTemplate?.template?.metadata ?? {}
+  const podSpec: TPodSpec = { ...specValidation.data }
+
+  podSpec.nodeName = nodeName
+  // Keep original container names from PodTemplate (don't overwrite)
+
+  if (!podSpec.restartPolicy) {
+    podSpec.restartPolicy = 'Never'
+  }
+
+  delete podSpec.hostname
+
+  return {
+    success: true,
+    data: {
+      apiVersion: 'v1',
+      kind: 'Pod',
+      metadata: {
+        name: podName,
+        namespace,
+        ...(templateMeta.labels ? { labels: templateMeta.labels } : {}),
+        ...(templateMeta.annotations ? { annotations: templateMeta.annotations } : {}),
+      },
+      spec: podSpec,
+    },
+  }
 }
 
 // export const getPodByProfile = ({

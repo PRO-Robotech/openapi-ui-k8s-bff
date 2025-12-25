@@ -89,7 +89,9 @@ const safeDecode = (s?: string) => {
  * It rotates watches periodically and on failures, handling 410 by re-listing.
  */
 export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket, req: Request) => {
-  console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection (list-then-watch)`)
+  console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection (list-then-watch)`, {
+    url: req.url,
+  })
 
   // --- Parse and normalize query params ---
   const reqUrl = new URL(req.url || '', `http://${req.headers.host}`)

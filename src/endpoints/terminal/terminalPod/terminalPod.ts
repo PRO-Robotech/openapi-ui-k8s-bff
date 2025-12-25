@@ -46,7 +46,7 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
       )
       try {
         const podWs = new WebSocket(execUrl, {
-          agent: httpsAgent,
+          ...(execUrl.startsWith('https://') ? { agent: httpsAgent } : {}),
           headers: {
             ...(DEVELOPMENT ? {} : filteredHeaders),
           },

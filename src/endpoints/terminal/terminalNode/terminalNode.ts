@@ -4,8 +4,15 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT, DEBUG_CONTAINER_IMAGE } from 'src/constants/envs'
 import { httpsAgent, baseUrl, userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
-import { generateRandomLetters, getNamespaceBody, getPodByProfile, waitForContainerReady } from './utils'
+import {
+  generateRandomLetters,
+  getNamespaceBody,
+  getPodByProfile,
+  getPodFromPodTemplate,
+  waitForContainerReady,
+} from './utils'
 import { SHUTDOWN_MESSAGES, WARMUP_MESSAGES } from './constants'
+import { TPodTemplate } from './types'
 
 export type TMessage = {
   type: string
@@ -31,10 +38,14 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       const nodeName = message.payload.nodeName
       const profile = message.payload.profile
+      const podTemplateName = message.payload.podTemplateName
+      const podTemplateNamespace = message.payload.podTemplateNamespace
+      const customContainerName = message.payload.containerName
       const randomLetters = generateRandomLetters()
       const namespaceName = `debugger-${nodeName}-bff-${randomLetters}`
       const podName = `debugger-${nodeName}-bff-${randomLetters}`
-      const container = 'debugger'
+      const container =
+        typeof customContainerName === 'string' && customContainerName.length > 0 ? customContainerName : 'debugger'
 
       const cleanUp = async () => {
         try {
@@ -130,18 +141,69 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_CREATING }))
 
+      const isUsingCustomTemplate =
+        typeof podTemplateName === 'string' &&
+        podTemplateName.length > 0 &&
+        typeof podTemplateNamespace === 'string' &&
+        podTemplateNamespace.length > 0
+
+      let podBody: Record<string, unknown> | null = null
+
+      if (isUsingCustomTemplate) {
+        const { data: podTemplate } = await userKubeApi.get<TPodTemplate>(
+          `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(
+            podTemplateName,
+          )}`,
+          {
+            headers: {
+              ...(DEVELOPMENT ? {} : filteredHeaders),
+              'Content-Type': 'application/json',
+            },
+          },
+        )
+
+        const podTemplateResult = getPodFromPodTemplate({
+          podTemplate: podTemplate,
+          namespace: namespaceName,
+          podName,
+          nodeName,
+          containerName: container,
+        })
+
+        if (!podTemplateResult.success) {
+          console.error(
+            `[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate validation failed: ${
+              podTemplateResult.error
+            }`,
+          )
+          ws.send(
+            JSON.stringify({
+              type: 'warmup',
+              payload: `${WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR}: ${podTemplateResult.error}`,
+            }),
+          )
+          await cleanUp()
+          ws.close()
+          return
+        }
+
+        podBody = podTemplateResult.data
+      } else {
+        podBody = getPodByProfile({
+          namespace: namespaceName,
+          podName,
+          nodeName,
+          containerImage: DEBUG_CONTAINER_IMAGE,
+          containerName: container,
+          profile,
+        })
+      }
+
       const createPod = await userKubeApi
         .post(
           `/api/v1/namespaces/${namespaceName}/pods`,
           {
-            ...getPodByProfile({
-              namespace: namespaceName,
-              podName,
-              nodeName,
-              containerImage: DEBUG_CONTAINER_IMAGE,
-              containerName: container,
-              profile,
-            }),
+            ...podBody,
           },
           {
             headers: {
@@ -207,7 +269,9 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       )
       try {
         const podWs = new WebSocket(execUrl, {
-          agent: httpsAgent,
+          // Only attach https agent for https://. For http:// (dev via port-forward),
+          // passing httpsAgent causes ERR_INVALID_PROTOCOL.
+          ...(execUrl.startsWith('https://') ? { agent: httpsAgent } : {}),
           headers: {
             ...(DEVELOPMENT ? {} : filteredHeaders),
           },

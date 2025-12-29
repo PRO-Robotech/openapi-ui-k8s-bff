@@ -5,16 +5,7 @@ import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { generateRandomLetters, getNamespaceBody, getPodFromPodTemplate, waitForContainerReady } from './utils'
 import { SHUTDOWN_MESSAGES, WARMUP_MESSAGES } from './constants'
-import { TPodTemplate } from './types'
-
-export type TMessage = {
-  type: string
-  payload: {
-    nodeName?: string
-    podTemplateName?: string
-    podTemplateNamespace?: string
-  }
-}
+import { TPodTemplate, TMessage } from './types'
 
 export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) => {
   console.log(`[${new Date().toISOString()}]: Websocket: Client connected to WebSocket server`)
@@ -156,7 +147,9 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_CREATING }))
 
       const { data: podTemplate } = await userKubeApi.get<TPodTemplate>(
-        `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(podTemplateName)}`,
+        `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(
+          podTemplateName,
+        )}`,
         {
           headers: {
             ...(DEVELOPMENT ? {} : filteredHeaders),
@@ -172,7 +165,12 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       if (containerNames.length === 0) {
         console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: No containers found in PodTemplate`)
-        ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR + ': No containers found' }))
+        ws.send(
+          JSON.stringify({
+            type: 'warmup',
+            payload: WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR + ': No containers found',
+          }),
+        )
         await cleanUp()
         ws.close()
         return
@@ -189,8 +187,17 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       })
 
       if (!podTemplateResult.success) {
-        console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate validation failed: ${podTemplateResult.error}`)
-        ws.send(JSON.stringify({ type: 'warmup', payload: `${WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR}: ${podTemplateResult.error}` }))
+        console.error(
+          `[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate validation failed: ${
+            podTemplateResult.error
+          }`,
+        )
+        ws.send(
+          JSON.stringify({
+            type: 'warmup',
+            payload: `${WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR}: ${podTemplateResult.error}`,
+          }),
+        )
         await cleanUp()
         ws.close()
         return
@@ -255,14 +262,16 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
       // STAGE II: Pod is ready - send podReady message with pod info
       console.log(`[${new Date().toISOString()}]: WebsocketPod: Pod ready, containers: ${containerNames.join(', ')}`)
 
-      ws.send(JSON.stringify({
-        type: 'podReady',
-        payload: {
-          namespace: namespaceName,
-          podName: podName,
-          containers: containerNames,
-        },
-      }))
+      ws.send(
+        JSON.stringify({
+          type: 'podReady',
+          payload: {
+            namespace: namespaceName,
+            podName: podName,
+            containers: containerNames,
+          },
+        }),
+      )
 
       // Keep connection open for lifecycle management
       // Cleanup happens when client closes the connection

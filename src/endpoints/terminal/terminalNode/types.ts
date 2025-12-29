@@ -1,4 +1,3 @@
-// WebSocket message from frontend to terminalNode endpoint
 export type TMessage = {
   type: string
   payload: {

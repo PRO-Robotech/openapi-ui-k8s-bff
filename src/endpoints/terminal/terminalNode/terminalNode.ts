@@ -26,7 +26,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       const { nodeName, podTemplateName, podTemplateNamespace } = message.payload
 
-      // Validate required fields
       if (!nodeName) {
         console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: nodeName is required`)
         ws.close()
@@ -129,7 +128,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         return
       }
 
-      // Validate that custom template is provided (predefined profiles are no longer supported)
       const isValidCustomTemplate =
         typeof podTemplateName === 'string' &&
         podTemplateName.length > 0 &&
@@ -158,7 +156,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         },
       )
 
-      // Extract container names from the pod template
       const containerNames = (podTemplate?.template?.spec?.containers ?? [])
         .map(c => c.name)
         .filter((name): name is string => Boolean(name))
@@ -176,7 +173,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         return
       }
 
-      // Use first container for readiness check
       const firstContainerName = containerNames[0]
 
       const podTemplateResult = getPodFromPodTemplate({
@@ -236,7 +232,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.CONTAINER_WAITING_READY }))
 
-      // Wait for first container to be ready
       const isReady = await waitForContainerReady({
         namespace: namespaceName,
         podName,
@@ -273,8 +268,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         }),
       )
 
-      // Keep connection open for lifecycle management
-      // Cleanup happens when client closes the connection
       ws.on('close', async () => {
         console.log(`[${new Date().toISOString()}]: Websocket: Client disconnected, starting cleanup`)
         await cleanUp()

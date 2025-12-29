@@ -2,6 +2,7 @@ export const WARMUP_MESSAGES = {
   NAMESPACE_CREATING: 'Namespace creating',
   NAMESPACE_CREATED: 'Namespace created',
   NAMESPACE_CREATE_ERROR: 'Namespace create error',
+  POD_TEMPLATE_REQUIRED: 'Pod template is required',
   POD_CREATING: 'Pod creating',
   POD_CREATED: 'Pod created',
   POD_CREATE_ERROR: 'Pod create error',

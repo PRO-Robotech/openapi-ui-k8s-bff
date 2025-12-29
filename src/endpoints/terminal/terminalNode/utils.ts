@@ -189,7 +189,7 @@ export const getPodFromPodTemplate = ({
   namespace: string
   podName: string
   nodeName: string
-  containerName: string
+  containerName?: string // Optional - only validate if provided
 }): TValidationResult<Record<string, unknown>> => {
   const specFromTemplate = podTemplate?.template?.spec
 
@@ -198,9 +198,12 @@ export const getPodFromPodTemplate = ({
     return specValidation
   }
 
-  const containerValidation = validateContainerExists(specValidation.data.containers, containerName)
-  if (!containerValidation.success) {
-    return containerValidation
+  // Only validate container exists if containerName is provided
+  if (containerName) {
+    const containerValidation = validateContainerExists(specValidation.data.containers, containerName)
+    if (!containerValidation.success) {
+      return containerValidation
+    }
   }
 
   const templateMeta = podTemplate?.template?.metadata ?? {}

@@ -1,22 +1,19 @@
 /* eslint-disable max-lines-per-function */
-import WebSocket from 'ws'
 import { WebsocketRequestHandler } from 'express-ws'
-import { DEVELOPMENT, DEBUG_CONTAINER_IMAGE } from 'src/constants/envs'
-import { httpsAgent, baseUrl, userKubeApi } from 'src/constants/httpAgent'
+import { DEVELOPMENT } from 'src/constants/envs'
+import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
-import {
-  generateRandomLetters,
-  getNamespaceBody,
-  getPodByProfile,
-  getPodFromPodTemplate,
-  waitForContainerReady,
-} from './utils'
+import { generateRandomLetters, getNamespaceBody, getPodFromPodTemplate, waitForContainerReady } from './utils'
 import { SHUTDOWN_MESSAGES, WARMUP_MESSAGES } from './constants'
 import { TPodTemplate } from './types'
 
 export type TMessage = {
   type: string
-  payload: any
+  payload: {
+    nodeName?: string
+    podTemplateName?: string
+    podTemplateNamespace?: string
+  }
 }
 
 export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) => {
@@ -36,16 +33,18 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         return
       }
 
-      const nodeName = message.payload.nodeName
-      const profile = message.payload.profile
-      const podTemplateName = message.payload.podTemplateName
-      const podTemplateNamespace = message.payload.podTemplateNamespace
-      const customContainerName = message.payload.containerName
+      const { nodeName, podTemplateName, podTemplateNamespace } = message.payload
+
+      // Validate required fields
+      if (!nodeName) {
+        console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: nodeName is required`)
+        ws.close()
+        return
+      }
+
       const randomLetters = generateRandomLetters()
       const namespaceName = `debugger-${nodeName}-bff-${randomLetters}`
       const podName = `debugger-${nodeName}-bff-${randomLetters}`
-      const container =
-        typeof customContainerName === 'string' && customContainerName.length > 0 ? customContainerName : 'debugger'
 
       const cleanUp = async () => {
         try {
@@ -139,65 +138,65 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         return
       }
 
-      ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_CREATING }))
-
-      const isUsingCustomTemplate =
+      // Validate that custom template is provided (predefined profiles are no longer supported)
+      const isValidCustomTemplate =
         typeof podTemplateName === 'string' &&
         podTemplateName.length > 0 &&
         typeof podTemplateNamespace === 'string' &&
         podTemplateNamespace.length > 0
 
-      let podBody: Record<string, unknown> | null = null
-
-      if (isUsingCustomTemplate) {
-        const { data: podTemplate } = await userKubeApi.get<TPodTemplate>(
-          `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(
-            podTemplateName,
-          )}`,
-          {
-            headers: {
-              ...(DEVELOPMENT ? {} : filteredHeaders),
-              'Content-Type': 'application/json',
-            },
-          },
-        )
-
-        const podTemplateResult = getPodFromPodTemplate({
-          podTemplate: podTemplate,
-          namespace: namespaceName,
-          podName,
-          nodeName,
-          containerName: container,
-        })
-
-        if (!podTemplateResult.success) {
-          console.error(
-            `[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate validation failed: ${
-              podTemplateResult.error
-            }`,
-          )
-          ws.send(
-            JSON.stringify({
-              type: 'warmup',
-              payload: `${WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR}: ${podTemplateResult.error}`,
-            }),
-          )
-          await cleanUp()
-          ws.close()
-          return
-        }
-
-        podBody = podTemplateResult.data
-      } else {
-        podBody = getPodByProfile({
-          namespace: namespaceName,
-          podName,
-          nodeName,
-          containerImage: DEBUG_CONTAINER_IMAGE,
-          containerName: container,
-          profile,
-        })
+      if (!isValidCustomTemplate) {
+        console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate is required`)
+        ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_TEMPLATE_REQUIRED }))
+        await cleanUp()
+        ws.close()
+        return
       }
+
+      ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_CREATING }))
+
+      const { data: podTemplate } = await userKubeApi.get<TPodTemplate>(
+        `/api/v1/namespaces/${encodeURIComponent(podTemplateNamespace)}/podtemplates/${encodeURIComponent(podTemplateName)}`,
+        {
+          headers: {
+            ...(DEVELOPMENT ? {} : filteredHeaders),
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+
+      // Extract container names from the pod template
+      const containerNames = (podTemplate?.template?.spec?.containers ?? [])
+        .map(c => c.name)
+        .filter((name): name is string => Boolean(name))
+
+      if (containerNames.length === 0) {
+        console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: No containers found in PodTemplate`)
+        ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR + ': No containers found' }))
+        await cleanUp()
+        ws.close()
+        return
+      }
+
+      // Use first container for readiness check
+      const firstContainerName = containerNames[0]
+
+      const podTemplateResult = getPodFromPodTemplate({
+        podTemplate,
+        namespace: namespaceName,
+        podName,
+        nodeName,
+      })
+
+      if (!podTemplateResult.success) {
+        console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: PodTemplate validation failed: ${podTemplateResult.error}`)
+        ws.send(JSON.stringify({ type: 'warmup', payload: `${WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR}: ${podTemplateResult.error}` }))
+        await cleanUp()
+        ws.close()
+        return
+      }
+
+      const podBody = podTemplateResult.data
 
       const createPod = await userKubeApi
         .post(
@@ -230,10 +229,11 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.CONTAINER_WAITING_READY }))
 
+      // Wait for first container to be ready
       const isReady = await waitForContainerReady({
         namespace: namespaceName,
         podName,
-        containerName: container,
+        containerName: firstContainerName,
         maxAttempts: 25,
         retryIntervalMs: 5000,
         headers: {
@@ -252,78 +252,28 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.CONTAINER_READY }))
 
-      // STAGE II: default pod terminal logic
-      const wrapper = 'stty cols 999; exec /bin/sh'
+      // STAGE II: Pod is ready - send podReady message with pod info
+      console.log(`[${new Date().toISOString()}]: WebsocketPod: Pod ready, containers: ${containerNames.join(', ')}`)
 
-      const execUrl = [
-        `${baseUrl}/api/v1/namespaces/${namespaceName}/pods/${podName}/exec?&container=${container}&stdin=true&stdout=true&tty=true`,
-        `&command=${encodeURIComponent('sh')}`,
-        `&command=${encodeURIComponent('-c')}`,
-        `&command=${encodeURIComponent(wrapper)}`,
-      ].join('')
+      ws.send(JSON.stringify({
+        type: 'podReady',
+        payload: {
+          namespace: namespaceName,
+          podName: podName,
+          containers: containerNames,
+        },
+      }))
 
-      console.log(
-        `[${new Date().toISOString()}]: WebsocketPod: Connecting with user headers ${JSON.stringify(
-          DEVELOPMENT ? {} : filteredHeaders,
-        )}`,
-      )
-      try {
-        const podWs = new WebSocket(execUrl, {
-          // Only attach https agent for https://. For http:// (dev via port-forward),
-          // passing httpsAgent causes ERR_INVALID_PROTOCOL.
-          ...(execUrl.startsWith('https://') ? { agent: httpsAgent } : {}),
-          headers: {
-            ...(DEVELOPMENT ? {} : filteredHeaders),
-          },
-          protocol: 'v5.channel.k8s.io',
-          handshakeTimeout: 5_000,
-        })
-
-        podWs.on('open', () => {
-          console.log(`[${new Date().toISOString()}]: WebsocketPod: Connected to pod terminal`)
-        })
-
-        podWs.on('message', data => {
-          ws.send(JSON.stringify({ type: 'output', payload: data }))
-        })
-
-        podWs.on('close', async () => {
-          console.log(`[${new Date().toISOString()}]: WebsocketPod: Disconnected from pod terminal`)
-          await cleanUp()
-          ws.close()
-        })
-
-        podWs.on('error', error => {
-          console.error(`[${new Date().toISOString()}]: WebsocketPod: Pod WebSocket error:`, error)
-        })
-
-        ws.on('message', async message => {
-          const parsedMessage = JSON.parse(message.toString()) as TMessage
-          if (parsedMessage.type === 'input') {
-            podWs.send(Buffer.from(`\x00${parsedMessage.payload}`, 'utf8'))
-          }
-          // shutdown message
-          // if (parsedMessage.type === 'shutdown') {
-          //   await cleanUp()
-          //   ws.close()
-          // }
-        })
-
-        ws.on('close', async () => {
-          ws.send(JSON.stringify({ type: 'shutdown', payload: SHUTDOWN_MESSAGES.SHUTDOWN }))
-
-          podWs.close()
-          await cleanUp()
-        })
-      } catch (error) {
+      // Keep connection open for lifecycle management
+      // Cleanup happens when client closes the connection
+      ws.on('close', async () => {
+        console.log(`[${new Date().toISOString()}]: Websocket: Client disconnected, starting cleanup`)
         await cleanUp()
-        ws.close()
-        console.error(`[${new Date().toISOString()}]: WebSocket: Error catched`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error: error,
-        })
-      }
+      })
+
+      ws.on('error', error => {
+        console.error(`[${new Date().toISOString()}]: Websocket: WebSocket error:`, error)
+      })
     }
 
     ws.once('message', (message: Buffer) => {

@@ -1,15 +1,7 @@
 import { AxiosRequestConfig } from 'axios'
 import { userKubeApi } from 'src/constants/httpAgent'
-import { TProfileType, TPodTemplate, TContainer, TPodSpec, TValidationResult } from './types'
+import { TPodTemplate, TContainer, TPodSpec, TValidationResult } from './types'
 import { CONTAINER_WAITING } from './constants'
-import {
-  getLegacyPod,
-  getGeneralPod,
-  getBaselinePod,
-  getNetadminPod,
-  getRestrictedPod,
-  getSysadminPod,
-} from './podProfiles'
 
 const isObjectRecord = (v: unknown): v is Record<string, unknown> => {
   return typeof v === 'object' && v !== null
@@ -98,84 +90,6 @@ export const getNamespaceBody = ({ namespaceName }: { namespaceName: string }): 
       name: namespaceName,
     },
   }
-}
-
-export const getPodByProfile = ({
-  namespace,
-  podName,
-  nodeName,
-  containerImage,
-  containerName,
-  profile,
-}: {
-  namespace: string
-  podName: string
-  nodeName: string
-  containerImage: string
-  containerName: string
-  profile: TProfileType
-}): Record<string, any> => {
-  if (profile === 'legacy') {
-    return getLegacyPod({
-      namespace,
-      podName,
-      nodeName,
-      containerImage,
-      containerName,
-    })
-  }
-  if (profile === 'general') {
-    return getGeneralPod({
-      namespace,
-      podName,
-      nodeName,
-      containerImage,
-      containerName,
-    })
-  }
-  if (profile === 'baseline') {
-    return getBaselinePod({
-      namespace,
-      podName,
-      nodeName,
-      containerImage,
-      containerName,
-    })
-  }
-  if (profile === 'netadmin') {
-    return getNetadminPod({
-      namespace,
-      podName,
-      nodeName,
-      containerImage,
-      containerName,
-    })
-  }
-  if (profile === 'restricted') {
-    return getRestrictedPod({
-      namespace,
-      podName,
-      nodeName,
-      containerImage,
-      containerName,
-    })
-  }
-  if (profile === 'sysadmin') {
-    return getSysadminPod({
-      namespace,
-      podName,
-      nodeName,
-      containerImage,
-      containerName,
-    })
-  }
-  return getBaselinePod({
-    namespace,
-    podName,
-    nodeName,
-    containerImage,
-    containerName,
-  })
 }
 
 export const getPodFromPodTemplate = ({

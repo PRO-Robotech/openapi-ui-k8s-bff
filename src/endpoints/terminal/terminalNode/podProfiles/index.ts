@@ -1,6 +1,0 @@
-export { getLegacyPod } from './getLegacyPod'
-export { getGeneralPod } from './getGeneralPod'
-export { getBaselinePod } from './getBaselinePod'
-export { getNetadminPod } from './getNetadminPod'
-export { getRestrictedPod } from './getRestrictedPod'
-export { getSysadminPod } from './getSysadminPod'

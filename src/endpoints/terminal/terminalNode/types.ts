@@ -1,7 +1,3 @@
-// Note: TProfileType is kept for backwards compatibility with getPodByProfile in utils.ts
-// It can be removed once predefined profiles are fully deprecated
-export type TProfileType = 'legacy' | 'general' | 'baseline' | 'netadmin' | 'restricted' | 'sysadmin'
-
 // WebSocket message from frontend to terminalNode endpoint
 export type TMessage = {
   type: string

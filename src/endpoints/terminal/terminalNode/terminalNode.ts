@@ -160,19 +160,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         .map(c => c.name)
         .filter((name): name is string => Boolean(name))
 
-      if (containerNames.length === 0) {
-        console.error(`[${new Date().toISOString()}]: Websocket: HandleInit: No containers found in PodTemplate`)
-        ws.send(
-          JSON.stringify({
-            type: 'warmup',
-            payload: WARMUP_MESSAGES.POD_TEMPLATE_VALIDATION_ERROR + ': No containers found',
-          }),
-        )
-        await cleanUp()
-        ws.close()
-        return
-      }
-
       const firstContainerName = containerNames[0]
 
       const podTemplateResult = getPodFromPodTemplate({

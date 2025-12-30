@@ -59,24 +59,6 @@ const validatePodTemplateSpec = (spec: unknown): TValidationResult<TPodSpec> => 
   return { success: false, error: 'Spec in invalid' }
 }
 
-const validateContainerExists = (containers: TContainer[], containerName: string): TValidationResult<true> => {
-  const exists = containers.some(c => c.name === containerName)
-
-  if (!exists) {
-    const availableNames = containers.map(c => c.name).join(', ')
-    console.error('[getPodFromPodTemplate] Container not found in PodTemplate', {
-      requestedContainer: containerName,
-      availableContainers: availableNames,
-    })
-    return {
-      success: false,
-      error: `Container '${containerName}' not found in PodTemplate. Available: ${availableNames}`,
-    }
-  }
-
-  return { success: true, data: true }
-}
-
 export const generateRandomLetters = (): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz'
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -97,26 +79,17 @@ export const getPodFromPodTemplate = ({
   namespace,
   podName,
   nodeName,
-  containerName,
 }: {
   podTemplate: TPodTemplate
   namespace: string
   podName: string
   nodeName: string
-  containerName?: string // Optional - only validate if provided
 }): TValidationResult<Record<string, unknown>> => {
   const specFromTemplate = podTemplate?.template?.spec
 
   const specValidation = validatePodTemplateSpec(specFromTemplate)
   if (!specValidation.success) {
     return specValidation
-  }
-
-  if (containerName) {
-    const containerValidation = validateContainerExists(specValidation.data.containers, containerName)
-    if (!containerValidation.success) {
-      return containerValidation
-    }
   }
 
   const templateMeta = podTemplate?.template?.metadata ?? {}

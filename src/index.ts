@@ -26,7 +26,7 @@ import {
 } from 'src/endpoints/terminal'
 import { getKinds } from 'src/endpoints/search'
 import { getResourceVerbs } from 'src/endpoints/verbs'
-import { getEvents, eventsWebSocket } from 'src/endpoints/events'
+import { eventsWebSocket } from 'src/endpoints/events'
 import { listWatchWebSocket } from 'src/endpoints/listThenWatch'
 import { getClusterSwagger } from './cache'
 
@@ -111,10 +111,6 @@ app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/terminalPod/terminalPod`, terminal
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/terminalNode/terminalNode`, terminalNodeWebSocket)
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/podLogs/podLogs`, podLogsWebSocket)
 app.ws(`${BASEPREFIX}/openapi-bff-ws/terminal/podLogs/podLogsNonWs`, podLogsNonWsWebSocket)
-
-/* events */
-/* events: list */
-app.get(`${BASEPREFIX}/openapi-bff/evets/events/getKinds`, getEvents)
 
 /* events: ws */
 app.ws(`${BASEPREFIX}/openapi-bff-ws/events/eventsWs`, eventsWebSocket)

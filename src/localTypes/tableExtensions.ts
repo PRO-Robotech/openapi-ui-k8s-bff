@@ -28,6 +28,11 @@ export type TAdditionalPrinterColumnsKeyTypeProps = Record<
   }
 >
 
+export type TAdditionalPrinterColumnsCustomSortersAndFilters = {
+  key: string
+  type: string
+}[]
+
 export type TTableMappingData = {
   id: string
   pathToNavigate: string

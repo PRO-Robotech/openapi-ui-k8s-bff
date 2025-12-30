@@ -5,6 +5,7 @@ import {
   TAdditionalPrinterColumnsTrimLengths,
   TAdditionalPrinterColumnsColWidths,
   TAdditionalPrinterColumnsKeyTypeProps,
+  TAdditionalPrinterColumnsCustomSortersAndFilters,
 } from '../tableExtensions'
 
 export type TPrepareTableReq = {
@@ -29,6 +30,7 @@ export type TPrepareTableRes = {
   additionalPrinterColumnsTrimLengths?: TAdditionalPrinterColumnsTrimLengths
   additionalPrinterColumnsColWidths?: TAdditionalPrinterColumnsColWidths
   additionalPrinterColumnsKeyTypeProps?: TAdditionalPrinterColumnsKeyTypeProps
+  additionalPrinterColumnsCustomSortersAndFilters?: TAdditionalPrinterColumnsCustomSortersAndFilters
 
   pathToNavigate?: string
   recordKeysForNavigation?: string | string[] // jsonpath or keys as string[]

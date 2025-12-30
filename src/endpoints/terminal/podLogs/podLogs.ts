@@ -52,7 +52,7 @@ export const podLogsWebSocket: WebsocketRequestHandler = async (ws, req) => {
       let buffer: string[] = []
 
       const podWs = new WebSocket(execUrl, {
-        agent: httpsAgent,
+        ...(execUrl.startsWith('https://') ? { agent: httpsAgent } : {}),
         headers: {
           ...(DEVELOPMENT ? {} : filteredHeaders),
         },

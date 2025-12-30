@@ -2,19 +2,17 @@
 import { Request } from 'express'
 import WebSocket from 'ws'
 import { WebsocketRequestHandler } from 'express-ws'
-import * as k8s from '@kubernetes/client-node'
-import { createUserKubeClient } from 'src/constants/kubeClients'
+import { DEVELOPMENT } from 'src/constants/envs'
+import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { eventSortKey } from './utils'
+import { TWatchPhase, TEventsV1Event } from './types'
 
-type TWatchPhase = 'ADDED' | 'MODIFIED' | 'DELETED' | 'BOOKMARK'
-
-const isEventsV1Event = (obj: unknown): obj is k8s.EventsV1Event => {
+const isEventsV1Event = (obj: unknown): obj is TEventsV1Event => {
   if (obj === null || typeof obj !== 'object') return false
   const maybe = obj as Record<string, unknown>
-  if (!('metadata' in maybe) || typeof maybe.metadata !== 'object' || maybe.metadata === null) return false
-  const md = maybe.metadata as Record<string, unknown>
-  return typeof md.name === 'string'
+  const md = maybe.metadata as any
+  return !!md && typeof md === 'object' && typeof md.name === 'string'
 }
 
 const isGone410 = (err: unknown): boolean => {
@@ -25,7 +23,9 @@ const isGone410 = (err: unknown): boolean => {
     anyErr?.status === 410 ||
     anyErr?.body?.code === 410 ||
     anyErr?.body?.reason === 'Expired' ||
-    anyErr?.body?.reason === 'Gone'
+    anyErr?.body?.reason === 'Gone' ||
+    anyErr?.reason === 'Expired' ||
+    anyErr?.reason === 'Gone'
   )
 }
 
@@ -45,28 +45,38 @@ const getJoinedParam = (url: URL, key: string): string | undefined => {
   return values.join(',')
 }
 
+/** Attempt to decode a possibly encoded string safely. */
+const safeDecode = (s?: string) => {
+  if (!s) return undefined
+  try {
+    const once = decodeURIComponent(s)
+    return once.includes('%') ? decodeURIComponent(once) : once
+  } catch {
+    return s
+  }
+}
+
 export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, req: Request) => {
   console.log(`[${new Date().toISOString()}]: Incoming WebSocket connection for events`)
-
-  const headers: Record<string, string | string[] | undefined> = filterHeadersFromEnv(req)
 
   const reqUrl = new URL(req.url || '', `http://${req.headers.host}`)
   const namespace = reqUrl.searchParams.get('namespace') || undefined
   const initialLimit = parseLimit(reqUrl.searchParams.get('limit'))
   const initialContinue = reqUrl.searchParams.get('_continue') || undefined
-  console.log(`[${new Date().toISOString()}]: Query params parsed:`, { namespace, initialLimit, initialContinue })
-
-  const fieldSelector = getJoinedParam(reqUrl, 'fieldSelector') ?? getJoinedParam(reqUrl, 'field')
-  const labelSelector = getJoinedParam(reqUrl, 'labelSelector') ?? getJoinedParam(reqUrl, 'labels')
   const sinceRV = reqUrl.searchParams.get('sinceRV') || undefined
 
-  console.log(`[${new Date().toISOString()}]: Selectors:`, { fieldSelector, labelSelector, sinceRV })
+  const fieldSelectorRaw = getJoinedParam(reqUrl, 'fieldSelector') ?? getJoinedParam(reqUrl, 'field')
+  const labelSelectorRaw = getJoinedParam(reqUrl, 'labelSelector') ?? getJoinedParam(reqUrl, 'labels')
+  const fieldSelector = safeDecode(fieldSelectorRaw)
+  const labelSelector = safeDecode(labelSelectorRaw)
 
-  const userKube = createUserKubeClient(headers)
-  console.log(`[${new Date().toISOString()}]: Created Kubernetes client for user`)
-
-  const watch = new k8s.Watch(userKube.kubeConfig)
-  const evApi = userKube.kubeConfig.makeApiClient(k8s.EventsV1Api)
+  console.log(`[${new Date().toISOString()}]: Query params parsed:`, {
+    namespace,
+    initialLimit,
+    initialContinue,
+    sinceRV,
+  })
+  console.log(`[${new Date().toISOString()}]: Selectors:`, { fieldSelector, labelSelector })
 
   let closed = false
   // Seed lastRV from client if provided (so we can resume)
@@ -75,11 +85,34 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
   let abortCurrentWatch: (() => void) | null = null
   let startingWatch = false
 
-  const watchPath = namespace
-    ? `/apis/events.k8s.io/v1/namespaces/${namespace}/events`
-    : `/apis/events.k8s.io/v1/events`
+  const listPath = namespace ? `/apis/events.k8s.io/v1/namespaces/${namespace}/events` : `/apis/events.k8s.io/v1/events`
 
-  console.log(`[${new Date().toISOString()}]: Using watchPath:`, watchPath)
+  const watchPath = listPath
+
+  console.log(`[${new Date().toISOString()}]: Using listPath/watchPath:`, listPath)
+
+  // K8s list uses "continue" (not "_continue"). Metadata field is usually "continue" too.
+  const buildListQS = ({
+    limit,
+    _continue,
+    resourceVersion,
+    resourceVersionMatch,
+  }: {
+    limit?: number
+    _continue?: string
+    resourceVersion?: string
+    resourceVersionMatch?: 'NotOlderThan' | 'Exact'
+  }) => {
+    const sp = new URLSearchParams()
+    if (typeof limit === 'number') sp.set('limit', String(limit))
+    if (_continue) sp.set('continue', _continue)
+    if (fieldSelector) sp.set('fieldSelector', fieldSelector)
+    if (labelSelector) sp.set('labelSelector', labelSelector)
+    if (resourceVersion) sp.set('resourceVersion', resourceVersion)
+    if (resourceVersionMatch) sp.set('resourceVersionMatch', resourceVersionMatch)
+    const s = sp.toString()
+    return s ? `?${s}` : ''
+  }
 
   const listPage = async ({
     limit,
@@ -92,39 +125,39 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
   }) => {
     console.log(`[${new Date().toISOString()}]: Listing page of events`, { limit, _continue, captureRV, lastRV })
 
-    const baseOpts: k8s.EventsV1ApiListEventForAllNamespacesRequest = {
-      fieldSelector,
-      labelSelector,
-      limit: typeof limit === 'number' ? limit : undefined,
+    const filteredHeaders = filterHeadersFromEnv(req)
+    const qs = buildListQS({
+      limit,
       _continue,
-    }
-
-    if (!_continue && lastRV) {
-      baseOpts.resourceVersion = lastRV
-      baseOpts.resourceVersionMatch = 'NotOlderThan'
-    }
-
-    const resp = namespace
-      ? await evApi.listNamespacedEvent({ namespace, ...baseOpts })
-      : await evApi.listEventForAllNamespaces(baseOpts)
-
-    const items = (resp.items ?? []) as k8s.EventsV1Event[]
-    items.sort((a, b) => eventSortKey(b) - eventSortKey(a)) // newest first
-
-    console.log(`[${new Date().toISOString()}]: List page received`, {
-      // itemCount: resp.items?.length,
-      itemCount: items.length,
-      continue: resp.metadata?._continue,
-      resourceVersion: resp.metadata?.resourceVersion,
+      resourceVersion: !_continue && lastRV ? lastRV : undefined,
+      resourceVersionMatch: !_continue && lastRV ? 'NotOlderThan' : undefined,
     })
 
-    if (captureRV) lastRV = resp.metadata?.resourceVersion
+    const { data: body } = await userKubeApi.get(`${listPath}${qs}`, {
+      headers: {
+        ...(DEVELOPMENT ? {} : filteredHeaders),
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const items: TEventsV1Event[] = Array.isArray(body?.items) ? body.items : []
+    items.sort((a, b) => eventSortKey(b as any) - eventSortKey(a as any)) // newest first
+
+    const meta = body?.metadata || {}
+    const cont = (meta.continue ?? meta._continue) as string | undefined
+
+    console.log(`[${new Date().toISOString()}]: List page received`, {
+      itemCount: items.length,
+      continue: cont,
+      resourceVersion: meta.resourceVersion,
+    })
+
+    if (captureRV) lastRV = meta.resourceVersion
     return {
-      // items: resp.items ?? [],
       items,
-      continue: resp.metadata?._continue,
-      remainingItemCount: resp.metadata?.remainingItemCount,
-      resourceVersion: resp.metadata?.resourceVersion,
+      continue: cont,
+      remainingItemCount: meta.remainingItemCount as number | undefined,
+      resourceVersion: meta.resourceVersion as string | undefined,
     }
   }
 
@@ -152,7 +185,7 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         console.warn(`[${new Date().toISOString()}]: Failed to send event:`, {
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
-          error: error,
+          error,
         })
       }
     }
@@ -169,7 +202,7 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         console.error(`[${new Date().toISOString()}]: Failed to reset listPage after 410:`, {
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
-          error: error,
+          error,
         })
       }
     }
@@ -195,56 +228,108 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         abortCurrentWatch = null
       }
 
-      const watchOpts: any = {
-        fieldSelector,
-        labelSelector,
-        allowWatchBookmarks: true,
-      }
-      if (lastRV) {
-        watchOpts.resourceVersion = lastRV
-        // watchOpts.resourceVersionMatch = 'NotOlderThan'
+      const sp = new URLSearchParams()
+      sp.set('watch', '1')
+      sp.set('allowWatchBookmarks', 'true')
+      if (fieldSelector) sp.set('fieldSelector', fieldSelector)
+      if (labelSelector) sp.set('labelSelector', labelSelector)
+      if (lastRV) sp.set('resourceVersion', lastRV)
+
+      const qs = sp.toString()
+      console.log(`[${new Date().toISOString()}]: Watch query:`, qs)
+
+      const controller = new AbortController()
+      const filteredHeaders = filterHeadersFromEnv(req)
+
+      const response = await userKubeApi.get(`${watchPath}?${qs}`, {
+        headers: {
+          ...(DEVELOPMENT ? {} : filteredHeaders),
+          'Content-Type': 'application/json',
+        },
+        responseType: 'stream',
+        timeout: 0,
+        signal: controller.signal,
+      })
+
+      console.log(`[${new Date().toISOString()}]: Watch stream established`)
+
+      const stream = response.data as NodeJS.ReadableStream
+      let buffer = ''
+
+      const onStreamData = (chunk: Buffer | string) => {
+        buffer += chunk.toString()
+        let idx = buffer.indexOf('\n')
+        while (idx >= 0) {
+          const line = buffer.slice(0, idx).trim()
+          buffer = buffer.slice(idx + 1)
+          idx = buffer.indexOf('\n')
+          if (!line) continue
+
+          try {
+            const evt = JSON.parse(line)
+            const phase = evt?.type as string | undefined
+            const obj = evt?.object
+
+            if (phase === 'ERROR') {
+              void onError(obj ?? evt)
+              continue
+            }
+            if (phase) onEvent(phase, obj)
+          } catch (error) {
+            console.warn(`[${new Date().toISOString()}]: Failed to parse watch event line`, {
+              message: error instanceof Error ? error.message : String(error),
+              line,
+            })
+          }
+        }
       }
 
-      console.log(`[${new Date().toISOString()}]: Watch options:`, watchOpts)
-      const reqObj = await watch.watch(watchPath, watchOpts, onEvent, onError)
-      console.log(`[${new Date().toISOString()}]: Watch established`)
+      const onStreamError = (error: unknown) => {
+        console.error(`[${new Date().toISOString()}]: Watch stream error:`, error)
+        void onError(error)
+      }
+
+      const onStreamEnd = () => {
+        console.warn(`[${new Date().toISOString()}]: Watch stream ended`)
+        void onError(new Error('watch stream ended'))
+      }
+
+      stream.on('data', onStreamData)
+      stream.on('error', onStreamError)
+      stream.on('end', onStreamEnd)
+      stream.on('close', onStreamEnd)
+
       abortCurrentWatch = () => {
         console.log(`[${new Date().toISOString()}]: Aborting watch...`)
         try {
-          ;(reqObj as any)?.abort?.()
+          controller.abort()
         } catch {
           console.warn(`[${new Date().toISOString()}]: Abort failed`)
-        }
-        try {
-          ;(reqObj as any)?.destroy?.()
-        } catch {
-          console.warn(`[${new Date().toISOString()}]: Destroy failed`)
         }
       }
     } catch (error) {
       console.error(`[${new Date().toISOString()}]: Error starting watch:`, {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        error: error,
+        error,
       })
+
       if (!closed && isGone410(error)) {
         console.warn(`[${new Date().toISOString()}]: Re-listing after 410 on watch start`)
         try {
           await listPage({ limit: initialLimit, _continue: undefined, captureRV: true })
-        } catch (error) {
-          console.error(`[${new Date().toISOString()}]: Failed re-list after 410:`, {
-            message: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-            error: error,
-          })
+        } catch (e) {
+          console.error(`[${new Date().toISOString()}]: Failed re-list after 410:`, e)
         }
       }
+
       setTimeout(() => void startWatch(), 2000)
     } finally {
       startingWatch = false
     }
   }
 
+  // -------- INITIAL LIST --------
   try {
     console.log(`[${new Date().toISOString()}]: Performing initial list...`)
     const page = await listPage({
@@ -270,7 +355,7 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         console.error(`[${new Date().toISOString()}]: Failed to send INITIAL page:`, {
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
-          error: error,
+          error,
         })
       }
     }
@@ -278,11 +363,12 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
     console.error(`[${new Date().toISOString()}]: Initial list failed:`, {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      error: error,
+      error,
     })
     sentInitial = true
   }
 
+  // -------- START WATCH + ROTATE --------
   void startWatch()
   const rotateIv = setInterval(
     () => {
@@ -292,9 +378,11 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
     10 * 60 * 1000,
   )
 
+  // -------- CLIENT MESSAGES (pagination) --------
   ws.on('message', async data => {
     console.log(`[${new Date().toISOString()}]: Received WS message:`, data.toString())
     if (closed) return
+
     let msg: any
     try {
       msg = JSON.parse(String(data))
@@ -302,11 +390,13 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
       console.warn(`[${new Date().toISOString()}]: Invalid JSON from client`)
       return
     }
+
     if (msg?.type === 'SCROLL') {
       console.log(`[${new Date().toISOString()}]: Client requested SCROLL:`, msg)
       const limit = typeof msg.limit === 'number' && msg.limit > 0 ? Math.trunc(msg.limit) : undefined
       const token = typeof msg.continue === 'string' ? msg.continue : undefined
       if (!token) return
+
       try {
         const page = await listPage({ limit, _continue: token, captureRV: false })
         console.log(`[${new Date().toISOString()}]: Sending PAGE to client:`, { count: page.items.length })
@@ -324,7 +414,7 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         console.error(`[${new Date().toISOString()}]: Page fetch failed:`, {
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
-          error: error,
+          error,
         })
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'PAGE_ERROR', error: 'Failed to load next page' }))
@@ -333,6 +423,7 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
     }
   })
 
+  // -------- HEARTBEAT --------
   let isAlive = true
   ;(ws as any).on?.('pong', () => {
     console.log(`[${new Date().toISOString()}]: Pong received from client`)
@@ -354,11 +445,12 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
       console.error(`[${new Date().toISOString()}]: Ping error (ignored):`, {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        error: error,
+        error,
       })
     }
   }, 25_000)
 
+  // -------- CLEANUP --------
   const cleanup = () => {
     console.log(`[${new Date().toISOString()}]: Cleaning up WebSocket and watchers`)
     closed = true
@@ -385,7 +477,7 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
       console.error(`[${new Date().toISOString()}]: Error closing WS after error (ignored):`, {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        error: error,
+        error,
       })
     }
   })

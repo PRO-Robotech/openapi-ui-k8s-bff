@@ -5,12 +5,14 @@ import {
   TAdditionalPrinterColumnsColWidths,
   TAdditionalPrinterColumnsTrimLengths,
   TAdditionalPrinterColumnsKeyTypeProps,
+  TAdditionalPrinterColumnsCustomSortersAndFilters,
 } from 'src/localTypes/tableExtensions'
 import {
   isWithAdditionalPrinterColumns,
   isWithAdditionalPrinterColumnsUndefinedValues,
   isWithAdditionalPrinterColumnsColWidths,
   isWithAdditionalPrinterColumnsTrimLengths,
+  isWithAdditionalPrinterColumnsCustomSortersAndFilters,
 } from './guards'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -25,6 +27,7 @@ export const parseColumnsOverrides = ({
   ensuredCustomOverridesUndefinedValues?: TAdditionalPrinterColumnsUndefinedValues
   ensuredCustomOverridesTrimLengths?: TAdditionalPrinterColumnsTrimLengths
   ensuredCustomOverridesColWidths?: TAdditionalPrinterColumnsColWidths
+  ensuredCustomOverridesCustomSortersAndFilters?: TAdditionalPrinterColumnsCustomSortersAndFilters
   ensuredCustomOverridesKeyTypeProps?: TAdditionalPrinterColumnsKeyTypeProps
 } => {
   if (!customizationId) {
@@ -57,6 +60,12 @@ export const parseColumnsOverrides = ({
     ? specificCustomOverrides.spec.additionalPrinterColumnsColWidths
     : undefined
 
+  const ensuredCustomOverridesCustomSortersAndFilters = isWithAdditionalPrinterColumnsCustomSortersAndFilters(
+    specificCustomOverrides,
+  )
+    ? specificCustomOverrides.spec.additionalPrinterColumnsCustomSortersAndFilters
+    : undefined
+
   const ensuredCustomOverridesKeyTypeProps: TAdditionalPrinterColumnsKeyTypeProps = {}
   if (ensuredCustomOverrides) {
     ensuredCustomOverrides.forEach(({ name, type, customProps }) => {
@@ -71,6 +80,7 @@ export const parseColumnsOverrides = ({
     ensuredCustomOverridesUndefinedValues,
     ensuredCustomOverridesTrimLengths,
     ensuredCustomOverridesColWidths,
+    ensuredCustomOverridesCustomSortersAndFilters,
     ensuredCustomOverridesKeyTypeProps:
       Object.keys(ensuredCustomOverridesKeyTypeProps).length === 0 ? undefined : ensuredCustomOverridesKeyTypeProps,
   }

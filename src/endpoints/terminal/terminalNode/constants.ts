@@ -5,6 +5,7 @@ export const WARMUP_MESSAGES = {
   POD_CREATING: 'Pod creating',
   POD_CREATED: 'Pod created',
   POD_CREATE_ERROR: 'Pod create error',
+  POD_TEMPLATE_VALIDATION_ERROR: 'Pod template validation error',
   CONTAINER_WAITING_READY: 'Container waiting ready',
   CONTAINER_NEVER_READY: 'Container never ready',
   CONTAINER_READY: 'Container ready',

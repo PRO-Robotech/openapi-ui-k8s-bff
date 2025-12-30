@@ -6,7 +6,7 @@ import { TBuiltinResources } from 'src/localTypes/k8s'
 import { DEVELOPMENT, BASE_API_GROUP, BASE_API_VERSION, BASE_NAMESPACE_FULL_PATH } from 'src/constants/envs'
 import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
-import { prepare } from './utils/prepare'
+import { prepare } from './utils'
 // import { getTokenFromCookie } from 'src/utils/getTokenFromCookie'
 
 export const prepareFormProps: RequestHandler = async (req: TPrepareFormReq, res) => {

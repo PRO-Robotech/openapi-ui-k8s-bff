@@ -10,6 +10,9 @@ export const WARMUP_MESSAGES = {
   CONTAINER_WAITING_READY: 'Container waiting ready',
   CONTAINER_NEVER_READY: 'Container never ready',
   CONTAINER_READY: 'Container ready',
+  POD_WAITING_READY: 'Pod waiting ready',
+  POD_NEVER_READY: 'Pod never ready',
+  POD_READY: 'Pod ready',
 }
 
 export const SHUTDOWN_MESSAGES = {
@@ -19,6 +22,13 @@ export const SHUTDOWN_MESSAGES = {
   NAMESPACE_DELETED: 'Namespace deleted',
   NAMESPACE_DELETE_ERROR: 'Namespace delete error',
   CRITICAL: 'Clean up failed',
+}
+
+export const POD_WAITING = {
+  POD_PENDING: 'Pod is pending',
+  POD_RUNNING: 'Pod is running',
+  POD_FAILED: 'Pod failed',
+  POD_UNKNOWN: 'Pod status unknown',
 }
 
 export const CONTAINER_WAITING = {

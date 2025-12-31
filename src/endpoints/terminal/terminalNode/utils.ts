@@ -1,7 +1,7 @@
 import { AxiosRequestConfig } from 'axios'
 import { userKubeApi } from 'src/constants/httpAgent'
 import { TPodTemplate, TContainer, TPodSpec, TValidationResult } from './types'
-import { CONTAINER_WAITING } from './constants'
+import { POD_WAITING } from './constants'
 
 const isObjectRecord = (v: unknown): v is Record<string, unknown> => {
   return typeof v === 'object' && v !== null
@@ -119,80 +119,53 @@ export const getPodFromPodTemplate = ({
   }
 }
 
-export const waitForContainerReady = async ({
+export const waitForPodRunning = async ({
   namespace,
   podName,
-  containerName,
-  maxAttempts = 15,
+  maxAttempts = 25,
   retryIntervalMs = 5000,
   headers,
   sendMessage,
 }: {
   namespace: string
   podName: string
-  containerName: string
-  maxAttempts: number
-  retryIntervalMs: number
+  maxAttempts?: number
+  retryIntervalMs?: number
   headers: AxiosRequestConfig['headers']
   sendMessage: (msg: string) => void
 }): Promise<boolean> => {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       console.log(
-        `[${new Date().toISOString()}]: Websocket: ContainerWaiting: Checking container ${containerName} readiness (attempt ${attempt}/${maxAttempts})`,
+        `[${new Date().toISOString()}]: Websocket: PodWaiting: Checking pod phase (attempt ${attempt}/${maxAttempts})`,
       )
 
-      const response = await userKubeApi.get<
-        unknown & {
-          status: unknown & {
-            containerStatuses: {
-              name: string
-              state?: unknown & { running?: unknown; terminated?: { exitCode?: number } }
-            }[]
-          }
+      const response = await userKubeApi.get<{
+        status?: {
+          phase?: string
         }
-      >(`/api/v1/namespaces/${namespace}/pods/${podName}`, {
+      }>(`/api/v1/namespaces/${namespace}/pods/${podName}`, {
         headers,
       })
-      const pod = response.data
 
-      // Find the specific container
-      const containerStatus = pod.status?.containerStatuses?.find(status => status.name === containerName)
+      const podPhase = response.data?.status?.phase
 
-      if (!containerStatus) {
-        console.log(
-          `[${new Date().toISOString()}]: Websocket: ContainerWaiting: Container ${containerName} not found in pod status`,
-        )
-        sendMessage(CONTAINER_WAITING.CONTAINER_NOT_FOUND)
-        if (attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, retryIntervalMs))
-        }
-        continue
-      }
+      console.log(`[${new Date().toISOString()}]: Websocket: PodWaiting: Pod phase: ${podPhase}`)
 
-      if (containerStatus.state?.running) {
-        console.log(
-          `[${new Date().toISOString()}]: Websocket: ContainerWaiting: Container ${containerName} is ready after ${attempt} attempts`,
-        )
-        sendMessage(`${CONTAINER_WAITING.CONTAINER_READY} after ${attempt} attempts`)
+      if (podPhase === 'Running') {
+        sendMessage(`${POD_WAITING.POD_RUNNING} after ${attempt} attempts`)
         return true
       }
 
-      console.log(
-        `[${new Date().toISOString()}]: Websocket: ContainerWaiting: Container ${containerName} not ready yet. State:`,
-        containerStatus.state ? Object.keys(containerStatus.state)[0] : 'unknown',
-      )
-      sendMessage(CONTAINER_WAITING.CONTAINER_NOT_READY)
+      if (podPhase === 'Failed') {
+        sendMessage(POD_WAITING.POD_FAILED)
+        return false
+      }
 
-      // Check if container has failed
-      if (
-        containerStatus.state?.terminated?.exitCode !== undefined &&
-        containerStatus.state?.terminated?.exitCode !== 0
-      ) {
-        sendMessage(`${CONTAINER_WAITING.CONTAINER_TERMINATED} ${containerStatus.state.terminated.exitCode}`)
-        throw new Error(
-          `Container ${containerName} terminated with exit code ${containerStatus.state.terminated.exitCode}`,
-        )
+      if (podPhase === 'Unknown') {
+        sendMessage(POD_WAITING.POD_UNKNOWN)
+      } else {
+        sendMessage(`${POD_WAITING.POD_PENDING}: ${podPhase}`)
       }
 
       if (attempt < maxAttempts) {
@@ -200,24 +173,12 @@ export const waitForContainerReady = async ({
       } else {
         return false
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(
-        `[${new Date().toISOString()}]: Websocket: ContainerWaiting: Error checking pod status (attempt ${attempt}/${maxAttempts}):`,
-        error.message || {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error: error,
-        },
+        `[${new Date().toISOString()}]: Websocket: PodWaiting: Error checking pod status (attempt ${attempt}/${maxAttempts}):`,
+        error instanceof Error ? error.message : String(error),
       )
-      // sendError(`Error checking pod status (attempt ${attempt}/${maxAttempts})`)
 
-      // If it's a 404 error, the pod doesn't exist
-      // if (error.response?.statusCode === 404) {
-      // sendError(`Pod ${podName} not found in namespace ${namespace}`)
-      // throw new Error(`Pod ${podName} not found in namespace ${namespace}`)
-      // }
-
-      // Continue retrying for other errors until max attempts
       if (attempt < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, retryIntervalMs))
       } else {
@@ -227,8 +188,7 @@ export const waitForContainerReady = async ({
   }
 
   console.error(
-    `[${new Date().toISOString()}]: Websocket: ContainerWaiting: Max attempts (${maxAttempts}) reached waiting for container ${containerName} to be ready`,
+    `[${new Date().toISOString()}]: Websocket: PodWaiting: Max attempts (${maxAttempts}) reached waiting for pod to be running`,
   )
   return false
-  // throw new Error(`Max attempts (${maxAttempts}) reached waiting for container ${containerName} to be ready`)
 }

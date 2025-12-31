@@ -3,7 +3,7 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
-import { generateRandomLetters, getNamespaceBody, getPodFromPodTemplate, waitForContainerReady } from './utils'
+import { generateRandomLetters, getNamespaceBody, getPodFromPodTemplate, waitForPodRunning } from './utils'
 import { SHUTDOWN_MESSAGES, WARMUP_MESSAGES } from './constants'
 import { TPodTemplate, TMessage } from './types'
 
@@ -160,8 +160,6 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         .map(c => c.name)
         .filter((name): name is string => Boolean(name))
 
-      const firstContainerName = containerNames[0]
-
       const podTemplateResult = getPodFromPodTemplate({
         podTemplate,
         namespace: namespaceName,
@@ -217,29 +215,26 @@ export const terminalNodeWebSocket: WebsocketRequestHandler = async (ws, req) =>
         return
       }
 
-      ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.CONTAINER_WAITING_READY }))
+      ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_WAITING_READY }))
 
-      const isReady = await waitForContainerReady({
+      const isReady = await waitForPodRunning({
         namespace: namespaceName,
         podName,
-        containerName: firstContainerName,
-        maxAttempts: 25,
-        retryIntervalMs: 5000,
         headers: {
           ...(DEVELOPMENT ? {} : filteredHeaders),
           'Content-Type': 'application/json',
         },
-        sendMessage: message => ws.send(JSON.stringify({ type: 'containerWaiting', payload: message })),
+        sendMessage: message => ws.send(JSON.stringify({ type: 'podWaiting', payload: message })),
       })
 
       if (!isReady) {
-        ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.CONTAINER_NEVER_READY }))
+        ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_NEVER_READY }))
         await cleanUp()
         ws.close()
         return
       }
 
-      ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.CONTAINER_READY }))
+      ws.send(JSON.stringify({ type: 'warmup', payload: WARMUP_MESSAGES.POD_READY }))
 
       // STAGE II: Pod is ready - send podReady message with pod info
       console.log(`[${new Date().toISOString()}]: WebsocketPod: Pod ready, containers: ${containerNames.join(', ')}`)

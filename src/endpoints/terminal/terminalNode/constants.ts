@@ -25,7 +25,7 @@ export const SHUTDOWN_MESSAGES = {
 }
 
 export const POD_WAITING = {
-  POD_PENDING: 'Pod is pending',
+  POD_PENDING: 'Pod phase',
   POD_RUNNING: 'Pod is running',
   POD_FAILED: 'Pod failed',
   POD_UNKNOWN: 'Pod status unknown',

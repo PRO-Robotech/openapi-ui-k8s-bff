@@ -1,4 +1,11 @@
-export type TProfileType = 'legacy' | 'general' | 'baseline' | 'netadmin' | 'restricted' | 'sysadmin'
+export type TMessage = {
+  type: string
+  payload: {
+    nodeName?: string
+    podTemplateName?: string
+    podTemplateNamespace?: string
+  }
+}
 
 export type TContainer = {
   name?: string

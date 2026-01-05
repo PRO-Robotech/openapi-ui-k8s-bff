@@ -16,7 +16,6 @@ This app can be configured through environment variables.
 | `BASE_API_VERSION`                       | `string` | API version for customization resources. `v1alpha1`         |
 | `BASE_NAVIGATION_RESOURCE_PLURAL`        | `string` | Resource plural name for navigation settings. `navigations` |
 | `BASE_NAVIGATION_RESOURCE_NAME`          | `string` | Resource name for navigation settings. `navigation`         |
-| `DEBUG_CONTAINER_IMAGE`                  | `string` | Image for Node Terminal                                     |
 | `BASE_FRONTEND_PREFIX`                   | `string` | To build proper links to resources                          |
 | `BASE_FACTORY_NAMESPACED_API_KEY`        | `string` | Base factory key for namespaced API resource                |
 | `BASE_FACTORY_CLUSTERSCOPED_API_KEY`     | `string` | Base factory key for clusterscoped API resource             |
@@ -25,6 +24,7 @@ This app can be configured through environment variables.
 | `BASE_NAMESPACE_FACTORY_KEY`             | `string` | Base factory key for namespace                              |
 | `BASE_NAMESPACE_FULL_PATH`               | `string` | Resrouce full path if you use custom API resource for NS    |
 | `BASE_ALLOWED_AUTH_HEADERS`              | `string` | White-listed req headers for impersonation                  |
+| `MF_PLUGINS_NO_CLUSTER`                  | `string` | JSON for Plugins Manifest                                   |
 
 Local development: This app can be also configured through more environment variables.
 

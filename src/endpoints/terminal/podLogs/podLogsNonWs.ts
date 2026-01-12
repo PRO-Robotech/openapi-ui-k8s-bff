@@ -124,6 +124,7 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
       const podName = message.payload.podName
       const container = message.payload.container
       const previous = message.payload.previous
+      const tailLines = message.payload.tailLines
 
       ws.send(JSON.stringify({ type: 'ready' }))
 
@@ -131,6 +132,10 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
         container,
         timestamps: 'true',
       })
+
+      if (tailLines !== undefined && tailLines !== null) {
+        params.append('tailLines', String(tailLines))
+      }
 
       const execUrlNoFollow = `${baseUrl}/api/v1/namespaces/${namespace}/pods/${podName}/log?${params.toString()}${
         previous ? `&previous=${previous}` : ''

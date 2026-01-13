@@ -17,6 +17,7 @@ export const startLogPolling = (
     pollIntervalMs = 5000,
   }: { url: string; headers: AxiosRequestConfig['headers']; pollIntervalMs?: number },
   onNewLines: (lines: string) => void,
+  onError?: (error: string) => void,
 ): { stop: () => void } => {
   let canceled = false
   let prevLatestTimestamp: Date | null = null
@@ -75,12 +76,21 @@ export const startLogPolling = (
 
       // Send to callback
       onNewLines(initLogsWithoutTimestamps)
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        (error instanceof Error ? error.message : String(error))
+
       console.error('Error fetching logs:', {
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
         error: error,
       })
+
+      if (onError) {
+        onError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage))
+      }
     }
   }
 
@@ -173,6 +183,9 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
             return
           }
           ws.send(JSON.stringify({ type: 'output', payload: newLines }))
+        },
+        errorMessage => {
+          ws.send(JSON.stringify({ type: 'error', payload: errorMessage }))
         },
       )
 

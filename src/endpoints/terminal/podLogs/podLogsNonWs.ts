@@ -125,6 +125,9 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
       const container = message.payload.container
       const previous = message.payload.previous
       const tailLines = message.payload.tailLines
+      const sinceSeconds = message.payload.sinceSeconds
+      const sinceTime = message.payload.sinceTime
+      const limitBytes = message.payload.limitBytes
 
       ws.send(JSON.stringify({ type: 'ready' }))
 
@@ -135,6 +138,17 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
       if (tailLines !== undefined && tailLines !== null) {
         params.append('tailLines', String(tailLines))
+      }
+
+      // sinceTime takes precedence over sinceSeconds (more specific)
+      if (sinceTime !== undefined && sinceTime !== null) {
+        params.append('sinceTime', sinceTime)
+      } else if (sinceSeconds !== undefined && sinceSeconds !== null) {
+        params.append('sinceSeconds', String(sinceSeconds))
+      }
+
+      if (limitBytes !== undefined && limitBytes !== null) {
+        params.append('limitBytes', String(limitBytes))
       }
 
       const execUrlNoFollow = `${baseUrl}/api/v1/namespaces/${namespace}/pods/${podName}/log?${params.toString()}${

@@ -17,6 +17,7 @@ export const startLogPolling = (
     pollIntervalMs = 5000,
   }: { url: string; headers: AxiosRequestConfig['headers']; pollIntervalMs?: number },
   onNewLines: (lines: string) => void,
+  onError?: (error: string) => void,
 ): { stop: () => void } => {
   let canceled = false
   let prevLatestTimestamp: Date | null = null
@@ -75,12 +76,21 @@ export const startLogPolling = (
 
       // Send to callback
       onNewLines(initLogsWithoutTimestamps)
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        (error instanceof Error ? error.message : String(error))
+
       console.error('Error fetching logs:', {
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
         error: error,
       })
+
+      if (onError) {
+        onError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage))
+      }
     }
   }
 
@@ -124,6 +134,10 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
       const podName = message.payload.podName
       const container = message.payload.container
       const previous = message.payload.previous
+      const tailLines = message.payload.tailLines
+      const sinceSeconds = message.payload.sinceSeconds
+      const sinceTime = message.payload.sinceTime
+      const limitBytes = message.payload.limitBytes
 
       ws.send(JSON.stringify({ type: 'ready' }))
 
@@ -131,6 +145,21 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
         container,
         timestamps: 'true',
       })
+
+      if (tailLines !== undefined && tailLines !== null) {
+        params.append('tailLines', String(tailLines))
+      }
+
+      // sinceTime takes precedence over sinceSeconds (more specific)
+      if (sinceTime !== undefined && sinceTime !== null) {
+        params.append('sinceTime', sinceTime)
+      } else if (sinceSeconds !== undefined && sinceSeconds !== null) {
+        params.append('sinceSeconds', String(sinceSeconds))
+      }
+
+      if (limitBytes !== undefined && limitBytes !== null) {
+        params.append('limitBytes', String(limitBytes))
+      }
 
       const execUrlNoFollow = `${baseUrl}/api/v1/namespaces/${namespace}/pods/${podName}/log?${params.toString()}${
         previous ? `&previous=${previous}` : ''
@@ -154,6 +183,9 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
             return
           }
           ws.send(JSON.stringify({ type: 'output', payload: newLines }))
+        },
+        errorMessage => {
+          ws.send(JSON.stringify({ type: 'error', payload: errorMessage }))
         },
       )
 

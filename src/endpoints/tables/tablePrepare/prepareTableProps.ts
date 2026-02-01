@@ -20,6 +20,14 @@ import { getResourceLinkWithoutName, getNamespaceLink } from './utils/getBaseLin
 import { getDefaultAdditionalPrinterColumns } from './utils/getDefaultAdditionalPrinterColumns'
 import { prepareKeyTypeProps } from './utils/prepareKeyTypeProps'
 
+const hasFactoryItemOfType = (customProps: unknown, itemType: string): boolean => {
+  if (typeof customProps !== 'object' || customProps === null) return false
+  if (!('items' in customProps) || !Array.isArray(customProps.items)) return false
+  return customProps.items.some(
+    (item: unknown) => typeof item === 'object' && item !== null && 'type' in item && item.type === itemType,
+  )
+}
+
 export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, res) => {
   try {
     const filteredHeaders = filterHeadersFromEnv(req as Request)
@@ -123,12 +131,9 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
       .map(col => ({ key: col.name, type: 'disabled' }))
 
     // Auto-detect ActionsDropdown in columns to set withoutControls
-    const hasActionsDropdownColumn = finalColumns.some(col => {
-      if (col.type === 'factory' && col.customProps?.items) {
-        return col.customProps.items.some((item: { type?: string }) => item.type === 'ActionsDropdown')
-      }
-      return false
-    })
+    const hasActionsDropdownColumn = finalColumns.some(
+      col => col.type === 'factory' && hasFactoryItemOfType(col.customProps, 'ActionsDropdown'),
+    )
     const autoWithoutControls = ensuredWithoutControls ?? (hasActionsDropdownColumn ? true : undefined)
 
     const mergedCustomSortersAndFilters = [

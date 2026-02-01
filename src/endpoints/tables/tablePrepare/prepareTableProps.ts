@@ -45,6 +45,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
       ensuredCustomOverridesColWidths,
       ensuredCustomOverridesCustomSortersAndFilters,
       ensuredCustomOverridesKeyTypeProps,
+      ensuredWithoutControls,
     } = parseColumnsOverrides({
       columnsOverridesData: customcolumnsoverrides,
       customizationId: req.body.customizationId,
@@ -121,6 +122,15 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
       .filter(col => col.name.trim() === '')
       .map(col => ({ key: col.name, type: 'disabled' }))
 
+    // Auto-detect ActionsDropdown in columns to set withoutControls
+    const hasActionsDropdownColumn = finalColumns.some(col => {
+      if (col.type === 'factory' && col.customProps?.items) {
+        return col.customProps.items.some((item: { type?: string }) => item.type === 'ActionsDropdown')
+      }
+      return false
+    })
+    const autoWithoutControls = ensuredWithoutControls ?? (hasActionsDropdownColumn ? true : undefined)
+
     const mergedCustomSortersAndFilters = [
       ...(ensuredCustomOverridesCustomSortersAndFilters || []),
       ...actionsColumnsDisabledSorters,
@@ -143,6 +153,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
         basePrefixLinkWithoutName,
         namespaceLinkWithoutName,
       }),
+      withoutControls: autoWithoutControls,
 
       pathToNavigate: tableMappingSpecific?.pathToNavigate,
       recordKeysForNavigation: tableMappingSpecific?.keysToParse,

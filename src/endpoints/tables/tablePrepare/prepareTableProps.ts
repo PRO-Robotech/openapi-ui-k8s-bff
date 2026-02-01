@@ -114,15 +114,28 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
           })
         : undefined
 
+    const finalColumns = ensuredCustomOverrides || additionalPrinterColumns
+
+    // Auto-disable sorting for columns with whitespace-only names (e.g., Actions column with name: " ")
+    const actionsColumnsDisabledSorters = finalColumns
+      .filter(col => col.name.trim() === '')
+      .map(col => ({ key: col.name, type: 'disabled' }))
+
+    const mergedCustomSortersAndFilters = [
+      ...(ensuredCustomOverridesCustomSortersAndFilters || []),
+      ...actionsColumnsDisabledSorters,
+    ]
+
     const result: TPrepareTableRes = {
-      additionalPrinterColumns: ensuredCustomOverrides || additionalPrinterColumns,
+      additionalPrinterColumns: finalColumns,
       additionalPrinterColumnsUndefinedValues: [
         { key: 'Namespace', value: '-' },
         ...(ensuredCustomOverridesUndefinedValues || []),
       ],
       additionalPrinterColumnsTrimLengths: [{ key: 'Name', value: 64 }, ...(ensuredCustomOverridesTrimLengths || [])],
       additionalPrinterColumnsColWidths: ensuredCustomOverridesColWidths,
-      additionalPrinterColumnsCustomSortersAndFilters: ensuredCustomOverridesCustomSortersAndFilters,
+      additionalPrinterColumnsCustomSortersAndFilters:
+        mergedCustomSortersAndFilters.length > 0 ? mergedCustomSortersAndFilters : undefined,
       additionalPrinterColumnsKeyTypeProps: prepareKeyTypeProps({
         ensuredCustomOverridesKeyTypeProps,
         namespaceScopedWithoutNamespace,

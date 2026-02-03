@@ -116,3 +116,19 @@ export const isWithAdditionalPrinterColumnsCustomSortersAndFilters = (
   }
   return false
 }
+
+export const isWithWithoutControls = (x: any): x is { spec: { withoutControls: boolean } } => {
+  if (
+    typeof x === 'object' &&
+    !Array.isArray(x) &&
+    x !== null &&
+    x.spec &&
+    typeof x.spec === 'object' &&
+    !Array.isArray(x.spec) &&
+    x.spec !== null &&
+    typeof x.spec.withoutControls === 'boolean'
+  ) {
+    return true
+  }
+  return false
+}

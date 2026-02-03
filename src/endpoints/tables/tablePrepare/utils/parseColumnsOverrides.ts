@@ -13,6 +13,7 @@ import {
   isWithAdditionalPrinterColumnsColWidths,
   isWithAdditionalPrinterColumnsTrimLengths,
   isWithAdditionalPrinterColumnsCustomSortersAndFilters,
+  isWithWithoutControls,
 } from './guards'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -29,6 +30,7 @@ export const parseColumnsOverrides = ({
   ensuredCustomOverridesColWidths?: TAdditionalPrinterColumnsColWidths
   ensuredCustomOverridesCustomSortersAndFilters?: TAdditionalPrinterColumnsCustomSortersAndFilters
   ensuredCustomOverridesKeyTypeProps?: TAdditionalPrinterColumnsKeyTypeProps
+  ensuredWithoutControls?: boolean
 } => {
   if (!customizationId) {
     return {}
@@ -66,6 +68,10 @@ export const parseColumnsOverrides = ({
     ? specificCustomOverrides.spec.additionalPrinterColumnsCustomSortersAndFilters
     : undefined
 
+  const ensuredWithoutControls = isWithWithoutControls(specificCustomOverrides)
+    ? specificCustomOverrides.spec.withoutControls
+    : undefined
+
   const ensuredCustomOverridesKeyTypeProps: TAdditionalPrinterColumnsKeyTypeProps = {}
   if (ensuredCustomOverrides) {
     ensuredCustomOverrides.forEach(({ name, type, customProps }) => {
@@ -83,5 +89,6 @@ export const parseColumnsOverrides = ({
     ensuredCustomOverridesCustomSortersAndFilters,
     ensuredCustomOverridesKeyTypeProps:
       Object.keys(ensuredCustomOverridesKeyTypeProps).length === 0 ? undefined : ensuredCustomOverridesKeyTypeProps,
+    ensuredWithoutControls,
   }
 }

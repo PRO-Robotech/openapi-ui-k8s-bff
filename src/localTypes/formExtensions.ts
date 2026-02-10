@@ -16,6 +16,7 @@ export type TFormOverride = {
   spec: {
     customizationId: string
     strategy: string
+    forceViewMode?: 'OpenAPI' | 'Manual'
     schema: {
       properties: Record<string, unknown>
       required?: string[]

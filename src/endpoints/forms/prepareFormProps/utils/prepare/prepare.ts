@@ -71,7 +71,7 @@ export const prepare = async ({
     prefillValuesSchema: data.prefillValuesSchema,
   })
 
-  const { hiddenPaths, expandedPaths, persistedPaths, sortPaths } = getPathsFromOverride({
+  const { forceViewMode, hiddenPaths, expandedPaths, persistedPaths, sortPaths } = getPathsFromOverride({
     specificCustomOverrides,
   })
 
@@ -95,6 +95,7 @@ export const prepare = async ({
     expandedPaths: uniqExpanded,
     persistedPaths: uniqPersisted,
     sortPaths,
+    forceViewMode,
     kind,
     isNamespaced,
     formPrefills: formsPrefillsData?.items.find(item => item.spec.customizationId === customizationId),

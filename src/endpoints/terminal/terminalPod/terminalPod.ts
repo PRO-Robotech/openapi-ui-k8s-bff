@@ -9,6 +9,12 @@ export type TMessage = {
   payload: any
 }
 
+const sendError = (ws: WebSocket, message: string) => {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'error', payload: message }))
+  }
+}
+
 export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => {
   console.log(`[${new Date().toISOString()}]: Websocket: Client connected to WebSocket server`)
 
@@ -22,6 +28,7 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
             message.type
           }`,
         )
+        sendError(ws, 'Protocol error: first message must be init')
         ws.close()
         return
       }
@@ -70,6 +77,8 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
 
         podWs.on('error', error => {
           console.error(`[${new Date().toISOString()}]: WebsocketPod: Pod WebSocket error:`, error)
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          sendError(ws, `Failed to connect to container: ${errorMessage}`)
         })
 
         ws.on('message', message => {
@@ -89,6 +98,9 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
           stack: error instanceof Error ? error.stack : undefined,
           error: error,
         })
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        sendError(ws, `Connection error: ${errorMessage}`)
+        ws.close()
       }
     }
 
@@ -103,6 +115,7 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
           stack: error instanceof Error ? error.stack : undefined,
           error: error,
         })
+        sendError(ws, 'Invalid message format')
         ws.close()
       }
     })
@@ -112,5 +125,8 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
       stack: error instanceof Error ? error.stack : undefined,
       error: error,
     })
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    sendError(ws, `Internal error: ${errorMessage}`)
+    ws.close()
   }
 }

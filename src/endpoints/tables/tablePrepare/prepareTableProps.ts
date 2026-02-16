@@ -20,6 +20,14 @@ import { getResourceLinkWithoutName, getNamespaceLink } from './utils/getBaseLin
 import { getDefaultAdditionalPrinterColumns } from './utils/getDefaultAdditionalPrinterColumns'
 import { prepareKeyTypeProps } from './utils/prepareKeyTypeProps'
 
+const hasFactoryItemOfType = (customProps: unknown, itemType: string): boolean => {
+  if (typeof customProps !== 'object' || customProps === null) return false
+  if (!('items' in customProps) || !Array.isArray(customProps.items)) return false
+  return customProps.items.some(
+    (item: unknown) => typeof item === 'object' && item !== null && 'type' in item && item.type === itemType,
+  )
+}
+
 export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, res) => {
   try {
     const filteredHeaders = filterHeadersFromEnv(req as Request)
@@ -45,6 +53,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
       ensuredCustomOverridesColWidths,
       ensuredCustomOverridesCustomSortersAndFilters,
       ensuredCustomOverridesKeyTypeProps,
+      ensuredWithoutControls,
     } = parseColumnsOverrides({
       columnsOverridesData: customcolumnsoverrides,
       customizationId: req.body.customizationId,
@@ -114,15 +123,34 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
           })
         : undefined
 
+    const finalColumns = ensuredCustomOverrides || additionalPrinterColumns
+
+    // Auto-disable sorting for columns with whitespace-only names (e.g., Actions column with name: " ")
+    const actionsColumnsDisabledSorters = finalColumns
+      .filter(col => col.name.trim() === '')
+      .map(col => ({ key: col.name, type: 'disabled' }))
+
+    // Auto-detect ActionsDropdown in columns to set withoutControls
+    const hasActionsDropdownColumn = finalColumns.some(
+      col => col.type === 'factory' && hasFactoryItemOfType(col.customProps, 'ActionsDropdown'),
+    )
+    const autoWithoutControls = ensuredWithoutControls ?? (hasActionsDropdownColumn ? true : undefined)
+
+    const mergedCustomSortersAndFilters = [
+      ...(ensuredCustomOverridesCustomSortersAndFilters || []),
+      ...actionsColumnsDisabledSorters,
+    ]
+
     const result: TPrepareTableRes = {
-      additionalPrinterColumns: ensuredCustomOverrides || additionalPrinterColumns,
+      additionalPrinterColumns: finalColumns,
       additionalPrinterColumnsUndefinedValues: [
         { key: 'Namespace', value: '-' },
         ...(ensuredCustomOverridesUndefinedValues || []),
       ],
       additionalPrinterColumnsTrimLengths: [{ key: 'Name', value: 64 }, ...(ensuredCustomOverridesTrimLengths || [])],
       additionalPrinterColumnsColWidths: ensuredCustomOverridesColWidths,
-      additionalPrinterColumnsCustomSortersAndFilters: ensuredCustomOverridesCustomSortersAndFilters,
+      additionalPrinterColumnsCustomSortersAndFilters:
+        mergedCustomSortersAndFilters.length > 0 ? mergedCustomSortersAndFilters : undefined,
       additionalPrinterColumnsKeyTypeProps: prepareKeyTypeProps({
         ensuredCustomOverridesKeyTypeProps,
         namespaceScopedWithoutNamespace,
@@ -130,6 +158,7 @@ export const prepareTableProps: RequestHandler = async (req: TPrepareTableReq, r
         basePrefixLinkWithoutName,
         namespaceLinkWithoutName,
       }),
+      withoutControls: autoWithoutControls,
 
       pathToNavigate: tableMappingSpecific?.pathToNavigate,
       recordKeysForNavigation: tableMappingSpecific?.keysToParse,

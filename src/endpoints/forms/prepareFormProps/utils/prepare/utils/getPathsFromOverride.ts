@@ -5,17 +5,23 @@ export const getPathsFromOverride = ({
 }: {
   specificCustomOverrides?: TFormOverride
 }): {
+  forceViewMode?: 'OpenAPI' | 'Manual'
   hiddenPaths?: string[][]
   expandedPaths?: string[][]
   persistedPaths?: string[][]
   sortPaths?: string[][]
 } => {
+  let forceViewMode: 'OpenAPI' | 'Manual' | undefined
   let hiddenPaths: string[][] | undefined
   let expandedPaths: string[][] | undefined
   let persistedPaths: string[][] | undefined
   let sortPaths: string[][] | undefined
 
   if (specificCustomOverrides) {
+    if (specificCustomOverrides.spec.forceViewMode) {
+      forceViewMode = specificCustomOverrides.spec.forceViewMode
+    }
+
     if (specificCustomOverrides.spec.hidden) {
       hiddenPaths = specificCustomOverrides.spec.hidden
     }
@@ -33,5 +39,5 @@ export const getPathsFromOverride = ({
     }
   }
 
-  return { hiddenPaths, expandedPaths, persistedPaths, sortPaths }
+  return { forceViewMode, hiddenPaths, expandedPaths, persistedPaths, sortPaths }
 }

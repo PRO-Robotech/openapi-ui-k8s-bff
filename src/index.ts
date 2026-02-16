@@ -29,6 +29,8 @@ import { getResourceVerbs } from 'src/endpoints/verbs'
 import { eventsWebSocket } from 'src/endpoints/events'
 import { listWatchWebSocket } from 'src/endpoints/listThenWatch'
 import { getPlugins } from 'src/endpoints/plugins'
+import { drain } from 'src/endpoints/actions/drain/drain'
+import { rollback } from 'src/endpoints/actions/rollback/rollback'
 import { getClusterSwagger } from './cache'
 
 dotenv.config()
@@ -121,6 +123,10 @@ app.ws(`${BASEPREFIX}/openapi-bff-ws/listThenWatch/listWatchWs`, listWatchWebSoc
 
 /* plugins */
 app.get(`${BASEPREFIX}/openapi-bff/plugins/getPlugins`, getPlugins)
+
+/* actions */
+app.post(`${BASEPREFIX}/openapi-bff/actions/drain`, drain)
+app.post(`${BASEPREFIX}/openapi-bff/actions/rollback`, rollback)
 
 app.listen(port, () => {
   console.log(`[server]: Server is running at port: ${port}`)

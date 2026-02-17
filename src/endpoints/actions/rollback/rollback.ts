@@ -14,6 +14,11 @@ type TReplicaSet = {
   metadata: {
     name: string
     annotations?: Record<string, string>
+    ownerReferences?: Array<{
+      uid: string
+      kind: string
+      name: string
+    }>
   }
   spec: {
     template: Record<string, unknown>
@@ -34,7 +39,7 @@ export const rollback: RequestHandler = async (req: TRollbackRequest & Request, 
   }
   const patchHeaders = {
     ...(DEVELOPMENT ? {} : filteredHeaders),
-    'Content-Type': 'application/strategic-merge-patch+json',
+    'Content-Type': 'application/json-patch+json',
   }
 
   try {
@@ -71,28 +76,50 @@ export const rollback: RequestHandler = async (req: TRollbackRequest & Request, 
       headers: jsonHeaders,
     })
 
-    // Step 4: Find the RS with the previous revision
-    const targetRevision = currentRevision - 1
-    const previousRS = rsList.items?.find(rs => {
-      const rsRevision = parseInt(rs.metadata.annotations?.['deployment.kubernetes.io/revision'] || '0', 10)
-      return rsRevision === targetRevision
-    })
+    // Step 4: Filter RSes by ownerReference to this Deployment
+    const deploymentUid = deployment.metadata?.uid
+    const ownedRSes =
+      rsList.items?.filter(
+        rs => rs.metadata.ownerReferences?.some(ref => ref.uid === deploymentUid && ref.kind === 'Deployment'),
+      ) || []
 
-    if (!previousRS) {
-      return res.status(400).json({ error: `No ReplicaSet found with revision ${targetRevision}` })
+    // Step 5: Find the RS with the highest revision below current (handles gaps)
+    const revisionsDescending = ownedRSes
+      .map(rs => ({
+        rs,
+        revision: parseInt(rs.metadata.annotations?.['deployment.kubernetes.io/revision'] || '0', 10),
+      }))
+      .filter(({ revision }) => revision < currentRevision && revision > 0)
+      .sort((a, b) => b.revision - a.revision)
+
+    const previous = revisionsDescending[0]
+
+    if (!previous) {
+      return res.status(400).json({ error: 'No previous ReplicaSet revision found to rollback to' })
     }
 
-    // Step 5: Patch the Deployment's spec.template with the previous RS's template
+    // Step 6: Patch the Deployment using JSON Patch (matches kubectl rollout undo)
     await userKubeApi.patch(
       resourceEndpoint,
-      { spec: { template: previousRS.spec.template } },
+      [
+        {
+          op: 'replace',
+          path: '/spec/template',
+          value: previous.rs.spec.template,
+        },
+        {
+          op: 'replace',
+          path: '/metadata/annotations',
+          value: deployment.metadata?.annotations || {},
+        },
+      ],
       { headers: patchHeaders },
     )
 
     return res.json({
       rolledBack: true,
       fromRevision: currentRevision,
-      toRevision: targetRevision,
+      toRevision: previous.revision,
     })
   } catch (error) {
     console.error('[rollback] Error:', {

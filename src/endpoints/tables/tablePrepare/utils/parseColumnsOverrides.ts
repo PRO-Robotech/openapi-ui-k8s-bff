@@ -4,6 +4,7 @@ import {
   TAdditionalPrinterColumnsUndefinedValues,
   TAdditionalPrinterColumnsColWidths,
   TAdditionalPrinterColumnsTrimLengths,
+  TAdditionalPrinterColumnsTooltips,
   TAdditionalPrinterColumnsKeyTypeProps,
   TAdditionalPrinterColumnsCustomSortersAndFilters,
 } from 'src/localTypes/tableExtensions'
@@ -12,6 +13,7 @@ import {
   isWithAdditionalPrinterColumnsUndefinedValues,
   isWithAdditionalPrinterColumnsColWidths,
   isWithAdditionalPrinterColumnsTrimLengths,
+  isWithAdditionalPrinterColumnsTooltips,
   isWithAdditionalPrinterColumnsCustomSortersAndFilters,
   isWithWithoutControls,
 } from './guards'
@@ -28,6 +30,7 @@ export const parseColumnsOverrides = ({
   ensuredCustomOverridesUndefinedValues?: TAdditionalPrinterColumnsUndefinedValues
   ensuredCustomOverridesTrimLengths?: TAdditionalPrinterColumnsTrimLengths
   ensuredCustomOverridesColWidths?: TAdditionalPrinterColumnsColWidths
+  ensuredCustomOverridesTooltips?: TAdditionalPrinterColumnsTooltips
   ensuredCustomOverridesCustomSortersAndFilters?: TAdditionalPrinterColumnsCustomSortersAndFilters
   ensuredCustomOverridesKeyTypeProps?: TAdditionalPrinterColumnsKeyTypeProps
   ensuredWithoutControls?: boolean
@@ -62,6 +65,10 @@ export const parseColumnsOverrides = ({
     ? specificCustomOverrides.spec.additionalPrinterColumnsColWidths
     : undefined
 
+  const ensuredCustomOverridesTooltips = isWithAdditionalPrinterColumnsTooltips(specificCustomOverrides)
+    ? specificCustomOverrides.spec.additionalPrinterColumnsTooltips
+    : undefined
+
   const ensuredCustomOverridesCustomSortersAndFilters = isWithAdditionalPrinterColumnsCustomSortersAndFilters(
     specificCustomOverrides,
   )
@@ -86,6 +93,7 @@ export const parseColumnsOverrides = ({
     ensuredCustomOverridesUndefinedValues,
     ensuredCustomOverridesTrimLengths,
     ensuredCustomOverridesColWidths,
+    ensuredCustomOverridesTooltips,
     ensuredCustomOverridesCustomSortersAndFilters,
     ensuredCustomOverridesKeyTypeProps:
       Object.keys(ensuredCustomOverridesKeyTypeProps).length === 0 ? undefined : ensuredCustomOverridesKeyTypeProps,

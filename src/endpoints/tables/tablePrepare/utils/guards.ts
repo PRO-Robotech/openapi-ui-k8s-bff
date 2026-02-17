@@ -5,6 +5,7 @@ import {
   TAdditionalPrinterColumnsUndefinedValues,
   TAdditionalPrinterColumnsTrimLengths,
   TAdditionalPrinterColumnsColWidths,
+  TAdditionalPrinterColumnsTooltips,
   TAdditionalPrinterColumnsCustomSortersAndFilters,
 } from 'src/localTypes/tableExtensions'
 
@@ -86,6 +87,27 @@ export const isWithAdditionalPrinterColumnsColWidths = (
     x.spec !== null &&
     Array.isArray(x.spec.additionalPrinterColumnsColWidths) &&
     x.spec.additionalPrinterColumnsColWidths.every(
+      (el: any) => Object.keys(el).includes('key') && Object.keys(el).includes('value'),
+    )
+  ) {
+    return true
+  }
+  return false
+}
+
+export const isWithAdditionalPrinterColumnsTooltips = (
+  x: any,
+): x is { spec: { additionalPrinterColumnsTooltips: TAdditionalPrinterColumnsTooltips } } => {
+  if (
+    typeof x === 'object' &&
+    !Array.isArray(x) &&
+    x !== null &&
+    x.spec &&
+    typeof x.spec === 'object' &&
+    !Array.isArray(x.spec) &&
+    x.spec !== null &&
+    Array.isArray(x.spec.additionalPrinterColumnsTooltips) &&
+    x.spec.additionalPrinterColumnsTooltips.every(
       (el: any) => Object.keys(el).includes('key') && Object.keys(el).includes('value'),
     )
   ) {

@@ -5,3 +5,4 @@ export { getPathsWithAdditionalProperties } from './getPathsWithAdditionalProper
 export { processOverrideSchema } from './processOverride'
 export { getPathsFromOverride } from './getPathsFromOverride'
 export { computePersistedAPPaths } from './computePersistedAPPaths'
+export { normalizeFormPrefill } from './normalizeFormPrefill'

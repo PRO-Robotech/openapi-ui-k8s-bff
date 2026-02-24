@@ -11,6 +11,7 @@ import {
   getPropertiesToMerge,
   computePersistedAPPaths,
   getPathsFromOverride,
+  normalizeFormPrefill,
 } from './utils'
 
 export const prepare = async ({
@@ -87,6 +88,9 @@ export const prepare = async ({
   // ensure uniqueness (optional)
   const uniqExpanded = Array.from(new Map(mergedExpandedPaths.map(p => [p.join('\u0000'), p])).values())
 
+  const selectedPrefill = formsPrefillsData?.items.find(item => item.spec.customizationId === customizationId)
+  const normalizedPrefill = normalizeFormPrefill(selectedPrefill)
+
   return {
     result: 'success',
     properties: newProperties,
@@ -98,7 +102,7 @@ export const prepare = async ({
     forceViewMode,
     kind,
     isNamespaced,
-    formPrefills: formsPrefillsData?.items.find(item => item.spec.customizationId === customizationId),
+    formPrefills: normalizedPrefill,
     namespacesData: namespacesData?.items?.map(item => item.metadata?.name).filter(Boolean),
   }
 }

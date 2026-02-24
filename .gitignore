@@ -43,3 +43,4 @@ dist
 
 /*.md
 !/README.md
+.claude

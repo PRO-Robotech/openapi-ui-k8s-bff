@@ -1,5 +1,10 @@
 import _ from 'lodash'
-import { TFormPrefill, TFormPrefillPathSeg, TFormPrefillRaw, TFormPrefillValueEntry } from 'src/localTypes/formExtensions'
+import {
+  TFormPrefill,
+  TFormPrefillPathSeg,
+  TFormPrefillRaw,
+  TFormPrefillValueEntry,
+} from 'src/localTypes/formExtensions'
 
 const normalizePathSeg = (segment: unknown): TFormPrefillPathSeg | undefined => {
   if (typeof segment === 'number') return segment
@@ -11,9 +16,7 @@ const normalizePathSeg = (segment: unknown): TFormPrefillPathSeg | undefined => 
 
 const normalizePath = (path: unknown): TFormPrefillPathSeg[] => {
   if (!Array.isArray(path)) return []
-  return path
-    .map(normalizePathSeg)
-    .filter((segment): segment is TFormPrefillPathSeg => typeof segment !== 'undefined')
+  return path.map(normalizePathSeg).filter((segment): segment is TFormPrefillPathSeg => typeof segment !== 'undefined')
 }
 
 const isCanonicalValueEntry = (value: unknown): value is TFormPrefillValueEntry => {
@@ -70,9 +73,7 @@ export const normalizeFormPrefill = (prefill?: TFormPrefillRaw): TFormPrefill | 
 
   const values = prefill.spec.values
   const normalizedValues = isCanonicalValues(values)
-    ? values
-        .map(({ path, value }) => ({ path: normalizePath(path), value }))
-        .filter(({ path }) => path.length > 0)
+    ? values.map(({ path, value }) => ({ path: normalizePath(path), value })).filter(({ path }) => path.length > 0)
     : flattenValuesObject(values)
 
   return {
@@ -83,4 +84,3 @@ export const normalizeFormPrefill = (prefill?: TFormPrefillRaw): TFormPrefill | 
     },
   }
 }
-

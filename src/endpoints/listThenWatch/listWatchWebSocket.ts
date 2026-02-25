@@ -12,6 +12,7 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
+import { normalizeWsError } from './utils/normalizeWsError'
 
 /** Kubernetes watch phases we care about (including BOOKMARKs for RV advancement). */
 type TWatchPhase = 'ADDED' | 'MODIFIED' | 'DELETED' | 'BOOKMARK'
@@ -162,10 +163,25 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
   /**
    * Helper to send initial list page error.
    */
-  const sendInitialError = (msg: string) => {
+  const sendInitialError = ({
+    message,
+    statusCode,
+    reason,
+  }: {
+    message: string
+    statusCode?: number
+    reason?: string
+  }) => {
     try {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'INITIAL_ERROR', message: msg }))
+        ws.send(
+          JSON.stringify({
+            type: 'INITIAL_ERROR',
+            message,
+            statusCode,
+            reason,
+          }),
+        )
       }
     } catch {
       console.error('Failed to send console to frontend')
@@ -428,8 +444,17 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
         }
       }
     } catch (error) {
-      sendServerLog('error', `[${new Date().toISOString()}]: Error starting watch`)
+      const normalizedError = normalizeWsError(error, 'Error starting watch')
+      const watchDetails = [
+        `[${new Date().toISOString()}]: ${normalizedError.userMessage}`,
+        normalizedError.reason ? `reason=${normalizedError.reason}` : undefined,
+        normalizedError.message ? `message=${normalizedError.message}` : undefined,
+      ]
+        .filter(Boolean)
+        .join(' | ')
+      sendServerLog('error', watchDetails)
       console.error(`[${new Date().toISOString()}]: Error starting watch:`, {
+        normalizedError,
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
         error: error,
@@ -480,7 +505,7 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
           }),
         )
       } catch (error) {
-        sendInitialError(`[${new Date().toISOString()}]: Failed to send INITIAL page`)
+        sendInitialError({ message: `[${new Date().toISOString()}]: Failed to send INITIAL page` })
         sendServerLog('error', `[${new Date().toISOString()}]: Failed to send INITIAL page`)
         console.error(`[${new Date().toISOString()}]: Failed to send INITIAL page:`, {
           message: error instanceof Error ? error.message : String(error),
@@ -491,9 +516,23 @@ export const listWatchWebSocket: WebsocketRequestHandler = async (ws: WebSocket,
     }
   } catch (error) {
     // If the initial list fails, we still proceed to attempt a watch so the client gets errors later.
-    sendInitialError(`[${new Date().toISOString()}]: Initial list failed`)
-    sendServerLog('error', `[${new Date().toISOString()}]: Initial list failed`)
+    const normalizedError = normalizeWsError(error, 'Initial list failed')
+    const details = [
+      `[${new Date().toISOString()}]: ${normalizedError.userMessage}`,
+      normalizedError.reason ? `reason=${normalizedError.reason}` : undefined,
+      normalizedError.message ? `message=${normalizedError.message}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(' | ')
+
+    sendInitialError({
+      message: normalizedError.userMessage,
+      statusCode: normalizedError.statusCode,
+      reason: normalizedError.reason,
+    })
+    sendServerLog('error', details)
     console.error(`[${new Date().toISOString()}]: Initial list failed:`, {
+      normalizedError,
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       error: error,

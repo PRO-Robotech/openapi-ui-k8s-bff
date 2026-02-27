@@ -10,6 +10,7 @@ import {
   getPathsWithAdditionalProperties,
   getPropertiesToMerge,
   computePersistedAPPaths,
+  computePersistedPrefillPaths,
   getPathsFromOverride,
   normalizeFormPrefill,
 } from './utils'
@@ -71,13 +72,20 @@ export const prepare = async ({
     pathsWithAdditionalProperties,
     prefillValuesSchema: data.prefillValuesSchema,
   })
+  const autoPersistedFromPrefill = computePersistedPrefillPaths({
+    prefillValuesSchema: data.prefillValuesSchema,
+  })
 
   const { forceViewMode, hiddenPaths, expandedPaths, persistedPaths, sortPaths } = getPathsFromOverride({
     specificCustomOverrides,
   })
 
   // merge persisted lists generically
-  const mergedPersistedPaths: string[][] = [...(persistedPaths || []), ...autoPersistedFromAP]
+  const mergedPersistedPaths: string[][] = [
+    ...(persistedPaths || []),
+    ...autoPersistedFromAP,
+    ...autoPersistedFromPrefill,
+  ]
 
   // ensure uniqueness (optional)
   const uniqPersisted = Array.from(new Map(mergedPersistedPaths.map(p => [p.join('\u0000'), p])).values())

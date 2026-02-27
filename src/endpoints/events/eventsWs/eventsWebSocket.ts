@@ -7,6 +7,7 @@ import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
 import { eventSortKey } from './utils'
 import { TWatchPhase, TEventsV1Event } from './types'
+import { normalizeWsError } from './utils/normalizeWsError'
 
 const isEventsV1Event = (obj: unknown): obj is TEventsV1Event => {
   if (obj === null || typeof obj !== 'object') return false
@@ -90,6 +91,41 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
   const watchPath = listPath
 
   console.log(`[${new Date().toISOString()}]: Using listPath/watchPath:`, listPath)
+
+  const sendServerLog = (level: 'info' | 'warn' | 'error', message: string) => {
+    try {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SERVER_LOG', level, message }))
+      }
+    } catch {
+      console.error('Failed to send server log to frontend')
+    }
+  }
+
+  const sendInitialError = ({
+    message,
+    statusCode,
+    reason,
+  }: {
+    message: string
+    statusCode?: number
+    reason?: string
+  }) => {
+    try {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: 'INITIAL_ERROR',
+            message,
+            statusCode,
+            reason,
+          }),
+        )
+      }
+    } catch {
+      console.error('Failed to send initial error to frontend')
+    }
+  }
 
   // K8s list uses "continue" (not "_continue"). Metadata field is usually "continue" too.
   const buildListQS = ({
@@ -194,6 +230,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
   const onError = async (err: unknown) => {
     console.error(`[${new Date().toISOString()}]: Watch error:`, err)
     if (closed) return
+    const normalizedError = normalizeWsError(err, 'Watch error')
+    const reasonSuffix = normalizedError.reason ? ` ${normalizedError.reason}` : ''
+    sendServerLog(
+      'error',
+      `[${new Date().toISOString()}]: Watch error${
+        normalizedError.statusCode ? ` (${normalizedError.statusCode})` : ''
+      }${reasonSuffix}: ${normalizedError.message}`,
+    )
     if (isGone410(err)) {
       console.warn(`[${new Date().toISOString()}]: 410 Gone detected, resetting list page`)
       try {
@@ -313,6 +357,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         stack: error instanceof Error ? error.stack : undefined,
         error,
       })
+      const normalizedError = normalizeWsError(error, 'Error starting watch')
+      const reasonSuffix = normalizedError.reason ? ` ${normalizedError.reason}` : ''
+      sendServerLog(
+        'error',
+        `[${new Date().toISOString()}]: Error starting watch${
+          normalizedError.statusCode ? ` (${normalizedError.statusCode})` : ''
+        }${reasonSuffix}: ${normalizedError.message}`,
+      )
 
       if (!closed && isGone410(error)) {
         console.warn(`[${new Date().toISOString()}]: Re-listing after 410 on watch start`)
@@ -365,6 +417,19 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
       stack: error instanceof Error ? error.stack : undefined,
       error,
     })
+    const normalizedError = normalizeWsError(error, 'Initial events load failed')
+    const reasonSuffix = normalizedError.reason ? ` ${normalizedError.reason}` : ''
+    sendInitialError({
+      message: normalizedError.userMessage,
+      statusCode: normalizedError.statusCode,
+      reason: normalizedError.reason,
+    })
+    sendServerLog(
+      'error',
+      `[${new Date().toISOString()}]: Initial list failed${
+        normalizedError.statusCode ? ` (${normalizedError.statusCode})` : ''
+      }${reasonSuffix}: ${normalizedError.message}`,
+    )
     sentInitial = true
   }
 

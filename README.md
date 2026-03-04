@@ -24,6 +24,8 @@ This app can be configured through environment variables.
 | `BASE_NAMESPACE_FACTORY_KEY`             | `string` | Base factory key for namespace                              |
 | `BASE_NAMESPACE_FULL_PATH`               | `string` | Resrouce full path if you use custom API resource for NS    |
 | `BASE_ALLOWED_AUTH_HEADERS`              | `string` | White-listed req headers for impersonation                  |
+| `WS_LOG_WHITELIST_PATHS`                 | `string` | JSON array of WS log field paths to keep                    |
+| `WS_LOG_BLACKLIST_PATHS`                 | `string` | JSON array of WS log field paths to remove                  |
 | `MF_PLUGINS_NO_CLUSTER`                  | `string` | JSON for Plugins Manifest                                   |
 
 Local development: This app can be also configured through more environment variables.
@@ -33,6 +35,24 @@ Local development: This app can be also configured through more environment vari
 | `DEV_KUBE_API_URL`        | `string` | Full url to k8s proxy inside nginx inside port-forwarded container |
 | `KUBERNETES_SERVICE_HOST` | `string` | Host from API url above                                            |
 | `KUBERNETES_SERVICE_PORT` | `string` | Port from API url above                                            |
+
+### WebSocket log filtering
+
+WebSocket handlers in this BFF use plain `console.*` logs, while `winston` / `express-winston` only handle HTTP request logging. If you need to trim sensitive fields from WS log payloads, configure one of these env vars:
+
+- `WS_LOG_WHITELIST_PATHS`: JSON array of dot-paths to keep. If set, only these fields/subtrees are logged.
+- `WS_LOG_BLACKLIST_PATHS`: JSON array of dot-paths to remove. Used only when whitelist is empty.
+
+Rules:
+
+- If neither env is set, WS logs keep their current payloads.
+- If both are set, whitelist wins.
+- Invalid JSON is ignored with a warning.
+
+Examples:
+
+- `WS_LOG_BLACKLIST_PATHS=["error.config.headers.authorization","headers.cookie"]`
+- `WS_LOG_WHITELIST_PATHS=["error.message","error.code","headers.x-request-id"]`
 
 ---
 

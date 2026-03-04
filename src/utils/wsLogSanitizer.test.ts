@@ -130,4 +130,197 @@ describe('sanitizeWsLogPayload', () => {
       headers: {},
     })
   })
+
+  describe('** globstar wildcard', () => {
+    test('**.authorization blacklist strips authorization at any depth', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          blacklistPaths: ['**.authorization'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+          config: {
+            headers: {
+              cookie: 'session=secret',
+              'x-request-id': 'req-1',
+            },
+            url: '/api/v1/pods',
+          },
+          response: {
+            status: 403,
+          },
+        },
+        headers: {
+          'x-real-ip': '127.0.0.1',
+        },
+      })
+    })
+
+    test('**.headers blacklist strips entire headers subtrees at any depth', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          blacklistPaths: ['**.headers'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+          config: {
+            url: '/api/v1/pods',
+          },
+          response: {
+            status: 403,
+          },
+        },
+      })
+    })
+
+    test('** at end of pattern strips entire subtree from that point', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          blacklistPaths: ['error.config.**'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+          response: {
+            status: 403,
+          },
+        },
+        headers: {
+          authorization: 'Bearer header-secret',
+          'x-real-ip': '127.0.0.1',
+        },
+      })
+    })
+
+    test('** in the middle of a pattern', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          blacklistPaths: ['error.**.authorization'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+          config: {
+            headers: {
+              cookie: 'session=secret',
+              'x-request-id': 'req-1',
+            },
+            url: '/api/v1/pods',
+          },
+          response: {
+            status: 403,
+          },
+        },
+        headers: {
+          authorization: 'Bearer header-secret',
+          'x-real-ip': '127.0.0.1',
+        },
+      })
+    })
+  })
+
+  describe('* single-segment wildcard', () => {
+    test('*.authorization matches one level only', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          blacklistPaths: ['*.authorization'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+          config: {
+            headers: {
+              authorization: 'Bearer secret',
+              cookie: 'session=secret',
+              'x-request-id': 'req-1',
+            },
+            url: '/api/v1/pods',
+          },
+          response: {
+            status: 403,
+          },
+        },
+        headers: {
+          'x-real-ip': '127.0.0.1',
+        },
+      })
+    })
+
+    test('error.*.headers matches error.config.headers but not deeper', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          blacklistPaths: ['error.*.headers'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+          config: {
+            url: '/api/v1/pods',
+          },
+          response: {
+            status: 403,
+          },
+        },
+        headers: {
+          authorization: 'Bearer header-secret',
+          'x-real-ip': '127.0.0.1',
+        },
+      })
+    })
+  })
+
+  describe('mixed wildcards with exact paths', () => {
+    test('combines ** wildcard with exact path', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          blacklistPaths: ['**.cookie', 'headers.authorization'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+          config: {
+            headers: {
+              authorization: 'Bearer secret',
+              'x-request-id': 'req-1',
+            },
+            url: '/api/v1/pods',
+          },
+          response: {
+            status: 403,
+          },
+        },
+        headers: {
+          'x-real-ip': '127.0.0.1',
+        },
+      })
+    })
+  })
+
+  describe('wildcard whitelist', () => {
+    test('**.message keeps only message fields at any depth', () => {
+      expect(
+        sanitizeWsLogPayload(payload, {
+          whitelistPaths: ['**.message'],
+        }),
+      ).toEqual({
+        error: {
+          message: 'boom',
+        },
+      })
+    })
+
+    test('*.* keeps all fields one level deep', () => {
+      expect(
+        sanitizeWsLogPayload(
+          { a: { x: 1, y: 2 }, b: { z: 3 }, c: 'flat' },
+          { whitelistPaths: ['*.*'] },
+        ),
+      ).toEqual({
+        a: { x: 1, y: 2 },
+        b: { z: 3 },
+      })
+    })
+  })
 })

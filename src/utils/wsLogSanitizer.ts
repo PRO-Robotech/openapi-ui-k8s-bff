@@ -21,14 +21,63 @@ const normalizePaths = (paths: string[]) =>
 
 const isObjectLike = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 
-const isPrefixPath = (candidatePrefix: TPathTokens, targetPath: TPathTokens): boolean =>
-  candidatePrefix.length <= targetPath.length && candidatePrefix.every((part, index) => part === targetPath[index])
+/**
+ * Does `pattern` match a prefix of `path`? i.e. pattern matches path[0..k] for some k <= path.length.
+ * Supports `*` (one segment) and `**` (zero or more segments).
+ */
+const isGlobPrefixOf = (pattern: TPathTokens, path: TPathTokens, pi = 0, si = 0): boolean => {
+  if (pi >= pattern.length) return true
+
+  const token = pattern[pi]
+
+  if (token === '**') {
+    // skip: ** matches zero segments
+    if (isGlobPrefixOf(pattern, path, pi + 1, si)) return true
+    // consume: ** eats one segment, stays active
+    if (si < path.length && isGlobPrefixOf(pattern, path, pi, si + 1)) return true
+    return false
+  }
+
+  if (si >= path.length) return false
+
+  if (token === '*' || token === path[si]) {
+    return isGlobPrefixOf(pattern, path, pi + 1, si + 1)
+  }
+
+  return false
+}
+
+/**
+ * Can `partialPath` be extended to fully match `pattern`?
+ * Supports `*` (one segment) and `**` (zero or more segments).
+ */
+const canLeadToGlobMatch = (pattern: TPathTokens, partialPath: TPathTokens, pi = 0, si = 0): boolean => {
+  if (si >= partialPath.length) return true
+
+  if (pi >= pattern.length) return false
+
+  const token = pattern[pi]
+
+  if (token === '**') {
+    // skip: ** matches zero segments
+    if (canLeadToGlobMatch(pattern, partialPath, pi + 1, si)) return true
+    // consume: ** eats one segment, stays active
+    if (canLeadToGlobMatch(pattern, partialPath, pi, si + 1)) return true
+    return false
+  }
+
+  if (token === '*' || token === partialPath[si]) {
+    return canLeadToGlobMatch(pattern, partialPath, pi + 1, si + 1)
+  }
+
+  return false
+}
 
 const hasDescendantPath = (paths: TPathTokens[], currentPath: TPathTokens): boolean =>
-  paths.some(path => isPrefixPath(currentPath, path))
+  paths.some(path => canLeadToGlobMatch(path, currentPath))
 
 const hasAncestorPath = (paths: TPathTokens[], currentPath: TPathTokens): boolean =>
-  paths.some(path => isPrefixPath(path, currentPath))
+  paths.some(path => isGlobPrefixOf(path, currentPath))
 
 const cloneValue = (value: unknown, seen = new WeakMap<object, unknown>()): unknown => {
   if (Array.isArray(value)) {
@@ -82,7 +131,7 @@ const sanitizeWithWhitelist = (
   }
 
   if (!isObjectLike(value)) {
-    return cloneValue(value)
+    return undefined
   }
 
   const result: Record<string, unknown> = {}

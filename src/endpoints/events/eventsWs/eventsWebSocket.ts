@@ -5,6 +5,7 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
+import { formatWsLogInput, getWsRawMessageMetadata, sanitizeWsLogPayload } from 'src/utils/wsLogSanitizer'
 import { eventSortKey } from './utils'
 import { TWatchPhase, TEventsV1Event } from './types'
 import { normalizeWsError } from './utils/normalizeWsError'
@@ -71,13 +72,16 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
   const fieldSelector = safeDecode(fieldSelectorRaw)
   const labelSelector = safeDecode(labelSelectorRaw)
 
-  console.log(`[${new Date().toISOString()}]: Query params parsed:`, {
-    namespace,
-    initialLimit,
-    initialContinue,
-    sinceRV,
-  })
-  console.log(`[${new Date().toISOString()}]: Selectors:`, { fieldSelector, labelSelector })
+  console.log(
+    `[${new Date().toISOString()}]: Query params parsed:`,
+    sanitizeWsLogPayload({
+      namespace,
+      initialLimit,
+      initialContinue,
+      sinceRV,
+    }),
+  )
+  console.log(`[${new Date().toISOString()}]: Selectors:`, sanitizeWsLogPayload({ fieldSelector, labelSelector }))
 
   let closed = false
   // Seed lastRV from client if provided (so we can resume)
@@ -159,7 +163,10 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
     _continue?: string
     captureRV: boolean
   }) => {
-    console.log(`[${new Date().toISOString()}]: Listing page of events`, { limit, _continue, captureRV, lastRV })
+    console.log(
+      `[${new Date().toISOString()}]: Listing page of events`,
+      sanitizeWsLogPayload({ limit, _continue, captureRV, lastRV }),
+    )
 
     const filteredHeaders = filterHeadersFromEnv(req)
     const qs = buildListQS({
@@ -182,11 +189,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
     const meta = body?.metadata || {}
     const cont = (meta.continue ?? meta._continue) as string | undefined
 
-    console.log(`[${new Date().toISOString()}]: List page received`, {
-      itemCount: items.length,
-      continue: cont,
-      resourceVersion: meta.resourceVersion,
-    })
+    console.log(
+      `[${new Date().toISOString()}]: List page received`,
+      sanitizeWsLogPayload({
+        itemCount: items.length,
+        continue: cont,
+        resourceVersion: meta.resourceVersion,
+      }),
+    )
 
     if (captureRV) lastRV = meta.resourceVersion
     return {
@@ -218,17 +228,27 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
           ws.send(JSON.stringify({ type: p, item: obj }))
         }
       } catch (error) {
-        console.warn(`[${new Date().toISOString()}]: Failed to send event:`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error,
-        })
+        console.warn(
+          `[${new Date().toISOString()}]: Failed to send event:`,
+          sanitizeWsLogPayload({
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error,
+          }),
+        )
       }
     }
   }
 
   const onError = async (err: unknown) => {
-    console.error(`[${new Date().toISOString()}]: Watch error:`, err)
+    console.error(
+      `[${new Date().toISOString()}]: Watch error:`,
+      sanitizeWsLogPayload({
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        error: err,
+      }),
+    )
     if (closed) return
     const normalizedError = normalizeWsError(err, 'Watch error')
     const reasonSuffix = normalizedError.reason ? ` ${normalizedError.reason}` : ''
@@ -243,11 +263,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
       try {
         await listPage({ limit: initialLimit, _continue: undefined, captureRV: true })
       } catch (error) {
-        console.error(`[${new Date().toISOString()}]: Failed to reset listPage after 410:`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error,
-        })
+        console.error(
+          `[${new Date().toISOString()}]: Failed to reset listPage after 410:`,
+          sanitizeWsLogPayload({
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error,
+          }),
+        )
       }
     }
     // Restart the watch after a short delay; ensure we stop the current one first
@@ -320,16 +343,26 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
             }
             if (phase) onEvent(phase, obj)
           } catch (error) {
-            console.warn(`[${new Date().toISOString()}]: Failed to parse watch event line`, {
-              message: error instanceof Error ? error.message : String(error),
-              line,
-            })
+            console.warn(
+              `[${new Date().toISOString()}]: Failed to parse watch event line`,
+              sanitizeWsLogPayload({
+                message: error instanceof Error ? error.message : String(error),
+                line,
+              }),
+            )
           }
         }
       }
 
       const onStreamError = (error: unknown) => {
-        console.error(`[${new Date().toISOString()}]: Watch stream error:`, error)
+        console.error(
+          `[${new Date().toISOString()}]: Watch stream error:`,
+          sanitizeWsLogPayload({
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error,
+          }),
+        )
         void onError(error)
       }
 
@@ -352,11 +385,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         }
       }
     } catch (error) {
-      console.error(`[${new Date().toISOString()}]: Error starting watch:`, {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        error,
-      })
+      console.error(
+        `[${new Date().toISOString()}]: Error starting watch:`,
+        sanitizeWsLogPayload({
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error,
+        }),
+      )
       const normalizedError = normalizeWsError(error, 'Error starting watch')
       const reasonSuffix = normalizedError.reason ? ` ${normalizedError.reason}` : ''
       sendServerLog(
@@ -371,7 +407,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
         try {
           await listPage({ limit: initialLimit, _continue: undefined, captureRV: true })
         } catch (e) {
-          console.error(`[${new Date().toISOString()}]: Failed re-list after 410:`, e)
+          console.error(
+            `[${new Date().toISOString()}]: Failed re-list after 410:`,
+            sanitizeWsLogPayload({
+              message: e instanceof Error ? e.message : String(e),
+              stack: e instanceof Error ? e.stack : undefined,
+              error: e,
+            }),
+          )
         }
       }
 
@@ -404,19 +447,25 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
           }),
         )
       } catch (error) {
-        console.error(`[${new Date().toISOString()}]: Failed to send INITIAL page:`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error,
-        })
+        console.error(
+          `[${new Date().toISOString()}]: Failed to send INITIAL page:`,
+          sanitizeWsLogPayload({
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error,
+          }),
+        )
       }
     }
   } catch (error) {
-    console.error(`[${new Date().toISOString()}]: Initial list failed:`, {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      error,
-    })
+    console.error(
+      `[${new Date().toISOString()}]: Initial list failed:`,
+      sanitizeWsLogPayload({
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        error,
+      }),
+    )
     const normalizedError = normalizeWsError(error, 'Initial events load failed')
     const reasonSuffix = normalizedError.reason ? ` ${normalizedError.reason}` : ''
     sendInitialError({
@@ -445,26 +494,36 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
 
   // -------- CLIENT MESSAGES (pagination) --------
   ws.on('message', async data => {
-    console.log(`[${new Date().toISOString()}]: Received WS message:`, data.toString())
     if (closed) return
+    const rawMessage = data.toString()
 
     let msg: any
     try {
-      msg = JSON.parse(String(data))
-    } catch {
-      console.warn(`[${new Date().toISOString()}]: Invalid JSON from client`)
+      msg = JSON.parse(rawMessage)
+      console.log(`[${new Date().toISOString()}]: Received WS message:`, formatWsLogInput(rawMessage, { message: msg }))
+    } catch (error) {
+      console.warn(
+        `[${new Date().toISOString()}]: Invalid JSON from client`,
+        sanitizeWsLogPayload({
+          ...getWsRawMessageMetadata(rawMessage),
+          message: error instanceof Error ? error.message : String(error),
+        }),
+      )
       return
     }
 
     if (msg?.type === 'SCROLL') {
-      console.log(`[${new Date().toISOString()}]: Client requested SCROLL:`, msg)
+      console.log(`[${new Date().toISOString()}]: Client requested SCROLL:`, sanitizeWsLogPayload(msg))
       const limit = typeof msg.limit === 'number' && msg.limit > 0 ? Math.trunc(msg.limit) : undefined
       const token = typeof msg.continue === 'string' ? msg.continue : undefined
       if (!token) return
 
       try {
         const page = await listPage({ limit, _continue: token, captureRV: false })
-        console.log(`[${new Date().toISOString()}]: Sending PAGE to client:`, { count: page.items.length })
+        console.log(
+          `[${new Date().toISOString()}]: Sending PAGE to client:`,
+          sanitizeWsLogPayload({ count: page.items.length }),
+        )
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(
             JSON.stringify({
@@ -476,11 +535,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
           )
         }
       } catch (error) {
-        console.error(`[${new Date().toISOString()}]: Page fetch failed:`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error,
-        })
+        console.error(
+          `[${new Date().toISOString()}]: Page fetch failed:`,
+          sanitizeWsLogPayload({
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error,
+          }),
+        )
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'PAGE_ERROR', error: 'Failed to load next page' }))
         }
@@ -507,11 +569,14 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
       console.log(`[${new Date().toISOString()}]: Sending ping to client`)
       ;(ws as any).ping?.()
     } catch (error) {
-      console.error(`[${new Date().toISOString()}]: Ping error (ignored):`, {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        error,
-      })
+      console.error(
+        `[${new Date().toISOString()}]: Ping error (ignored):`,
+        sanitizeWsLogPayload({
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error,
+        }),
+      )
     }
   }, 25_000)
 
@@ -534,16 +599,26 @@ export const eventsWebSocket: WebsocketRequestHandler = async (ws: WebSocket, re
     cleanup()
   })
   ;(ws as any).on?.('error', err => {
-    console.error(`[${new Date().toISOString()}]: WebSocket error:`, err)
+    console.error(
+      `[${new Date().toISOString()}]: WebSocket error:`,
+      sanitizeWsLogPayload({
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        error: err,
+      }),
+    )
     cleanup()
     try {
       ;(ws as any).close?.()
     } catch (error) {
-      console.error(`[${new Date().toISOString()}]: Error closing WS after error (ignored):`, {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        error,
-      })
+      console.error(
+        `[${new Date().toISOString()}]: Error closing WS after error (ignored):`,
+        sanitizeWsLogPayload({
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error,
+        }),
+      )
     }
   })
 }

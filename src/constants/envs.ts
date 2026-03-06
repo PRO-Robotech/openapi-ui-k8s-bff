@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import { parseJsonEnvStringArray } from 'src/utils/parseJsonEnvStringArray'
 
 dotenv.config()
 
@@ -26,3 +27,13 @@ export const BASE_NAMESPACE_FACTORY_KEY = process.env.BASE_NAMESPACE_FACTORY_KEY
 export const BASE_NAMESPACE_FULL_PATH = process.env.BASE_NAMESPACE_FULL_PATH || '/api/v1/namespaces'
 
 export const BASE_ALLOWED_AUTH_HEADERS = process.env.BASE_ALLOWED_AUTH_HEADERS || ''
+
+export const WS_LOG_WHITELIST_PATHS = parseJsonEnvStringArray(
+  process.env.WS_LOG_WHITELIST_PATHS,
+  'WS_LOG_WHITELIST_PATHS',
+)
+export const WS_LOG_BLACKLIST_PATHS = parseJsonEnvStringArray(
+  process.env.WS_LOG_BLACKLIST_PATHS,
+  'WS_LOG_BLACKLIST_PATHS',
+)
+export const WS_LOG_PATH_FILTERS_ENABLED = WS_LOG_WHITELIST_PATHS.length > 0 || WS_LOG_BLACKLIST_PATHS.length > 0

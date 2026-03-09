@@ -10,9 +10,11 @@ import {
   getPathsWithAdditionalProperties,
   getPropertiesToMerge,
   computePersistedAPPaths,
+  computePersistedFormPrefillPaths,
   computePersistedPrefillPaths,
   getPathsFromOverride,
   normalizeFormPrefill,
+  resolvePrefillCustomizationId,
 } from './utils'
 
 export const prepare = async ({
@@ -20,6 +22,7 @@ export const prepare = async ({
   formsOverridesData,
   formsPrefillsData,
   customizationId,
+  customizationIdPrefill,
   namespacesData,
 }: TPrepareForm): Promise<TPrepareFormRes> => {
   const swaggerPaths = await getClusterSwaggerPaths()
@@ -75,16 +78,24 @@ export const prepare = async ({
   const autoPersistedFromPrefill = computePersistedPrefillPaths({
     prefillValuesSchema: data.prefillValuesSchema,
   })
+  const prefillCustomizationId = resolvePrefillCustomizationId({
+    customizationId,
+    customizationIdPrefill,
+  })
+  const selectedPrefill = formsPrefillsData?.items.find(item => item.spec.customizationId === prefillCustomizationId)
+  const normalizedPrefill = normalizeFormPrefill(selectedPrefill)
+  const autoPersistedFromSelectedPrefill = computePersistedFormPrefillPaths(normalizedPrefill)
 
   const { forceViewMode, hiddenPaths, expandedPaths, persistedPaths, sortPaths } = getPathsFromOverride({
     specificCustomOverrides,
   })
 
   // merge persisted lists generically
-  const mergedPersistedPaths: string[][] = [
+  const mergedPersistedPaths: (string | number)[][] = [
     ...(persistedPaths || []),
     ...autoPersistedFromAP,
     ...autoPersistedFromPrefill,
+    ...autoPersistedFromSelectedPrefill,
   ]
 
   // ensure uniqueness (optional)
@@ -95,9 +106,6 @@ export const prepare = async ({
 
   // ensure uniqueness (optional)
   const uniqExpanded = Array.from(new Map(mergedExpandedPaths.map(p => [p.join('\u0000'), p])).values())
-
-  const selectedPrefill = formsPrefillsData?.items.find(item => item.spec.customizationId === customizationId)
-  const normalizedPrefill = normalizeFormPrefill(selectedPrefill)
 
   return {
     result: 'success',

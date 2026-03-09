@@ -20,7 +20,9 @@
 
 11. Getting `hiddenPaths`, `expandedPaths`, `persistedPaths`, `sortPaths` from `specificCustomOverrides`
 
-12. Merging and getting unique:
+12. Getting `selectedPrefill` by `customizationIdPrefill || customizationId`
+
+13. Merging and getting unique:
 
 - `uniqPersisted` = `persistedPaths` + `autoPersistedFromAP`
 - `uniqExpanded` = `expandedPaths` + `autoPersistedFromAP`

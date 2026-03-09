@@ -22,6 +22,7 @@ export type TPrepareForm = {
   formsOverridesData?: TFormsOverridesData
   formsPrefillsData?: TFormsPrefillsData
   customizationId?: string
+  customizationIdPrefill?: string
   namespacesData?: TBuiltinResources
 }
 

@@ -23,6 +23,7 @@ export type TPrepareFormReq = {
         }
     cluster: string
     customizationId?: string
+    customizationIdPrefill?: string
   }
 } & THeaders
 
@@ -42,7 +43,7 @@ export type TPrepareFormRes =
       required: string[] | undefined
       hiddenPaths: string[][] | undefined
       expandedPaths: string[][] | undefined
-      persistedPaths: string[][] | undefined
+      persistedPaths: TFormName[] | undefined
       sortPaths: string[][] | undefined
       forceViewMode?: 'OpenAPI' | 'Manual'
       kind: string | undefined

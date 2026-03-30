@@ -1,2 +1,2 @@
 export { getKinds } from './getKinds'
-export { getRawKinds } from './getRawKinds'
+export { getKindsRaw } from './getRawKinds'

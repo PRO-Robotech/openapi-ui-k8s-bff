@@ -5,7 +5,7 @@ import { TAPIGroupList, TAPIResourceList, TAPIResource } from 'src/localTypes/ki
 import { TGroupVersionEntry } from './types'
 import { groupByKind, groupToVersionEntries, toGroupEntries, toItems, toRawFlatRecords } from './utils'
 
-export const getRawKinds: RequestHandler = async (req, res) => {
+export const getKindsRaw: RequestHandler = async (req, res) => {
   try {
     const { data: apiGroupList } = await kubeApi.get<TAPIGroupList>('/apis')
     const groupEntries = toGroupEntries(apiGroupList)

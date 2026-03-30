@@ -24,7 +24,7 @@ import {
   podLogsWebSocket,
   podLogsNonWsWebSocket,
 } from 'src/endpoints/terminal'
-import { getKinds } from 'src/endpoints/search'
+import { getKinds, getKindsRaw } from 'src/endpoints/search'
 import { getResourceVerbs } from 'src/endpoints/verbs'
 import { eventsWebSocket } from 'src/endpoints/events'
 import { listWatchWebSocket } from 'src/endpoints/listThenWatch'
@@ -105,6 +105,7 @@ app.post(`${BASEPREFIX}/openapi-bff/scopes/filterScopes/filterIfBuiltInNamespace
 /* search */
 /* kinds */
 app.get(`${BASEPREFIX}/openapi-bff/search/kinds/getKinds`, getKinds)
+app.get(`${BASEPREFIX}/openapi-bff/search/kinds/getKindsRaw`, getKindsRaw)
 
 /* verbs */
 app.get(`${BASEPREFIX}/openapi-bff/verbs/getResourceVerbs`, getResourceVerbs)

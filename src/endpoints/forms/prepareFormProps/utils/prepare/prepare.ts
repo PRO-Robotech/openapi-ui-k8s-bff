@@ -85,9 +85,9 @@ export const prepare = async ({
     customizationIdPrefill,
   })
   const selectedPrefill = formsPrefillsData?.items.find(item => item.spec.customizationId === prefillCustomizationId)
-  const resolvedPrefill = resolveFormPrefillPartsOfUrl({ prefill: selectedPrefill, partsOfUrl })
-  const normalizedPrefill = normalizeFormPrefill(resolvedPrefill)
-  const autoPersistedFromSelectedPrefill = computePersistedFormPrefillPaths(normalizedPrefill)
+  const normalizedPrefill = normalizeFormPrefill(selectedPrefill)
+  const resolvedPrefill = resolveFormPrefillPartsOfUrl({ prefill: normalizedPrefill, partsOfUrl })
+  const autoPersistedFromSelectedPrefill = computePersistedFormPrefillPaths(resolvedPrefill)
 
   const { forceViewMode, hiddenPaths, expandedPaths, persistedPaths, sortPaths } = getPathsFromOverride({
     specificCustomOverrides,
@@ -121,7 +121,7 @@ export const prepare = async ({
     forceViewMode,
     kind,
     isNamespaced,
-    formPrefills: normalizedPrefill,
+    formPrefills: resolvedPrefill,
     namespacesData: namespacesData?.items?.map(item => item.metadata?.name).filter(Boolean),
   }
 }

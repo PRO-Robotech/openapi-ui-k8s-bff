@@ -1,10 +1,11 @@
+import { TFormPrefill } from 'src/localTypes/formExtensions'
 import { resolveFormPrefillPartsOfUrl } from './resolveFormPrefillPartsOfUrl'
 
 describe('resolveFormPrefillPartsOfUrl', () => {
   const partsOfUrl = ['', 'openapi-ui', 'default', 'incloud-web']
 
   test('returns original prefill when partsOfUrl is missing', () => {
-    const prefill: any = {
+    const prefill: TFormPrefill = {
       spec: {
         customizationId: 'cid',
         values: [{ path: ['metadata', 'name'], value: 'svc-{3}' }],
@@ -15,7 +16,7 @@ describe('resolveFormPrefillPartsOfUrl', () => {
   })
 
   test('resolves placeholders in canonical entry values and keeps path unchanged', () => {
-    const prefill: any = {
+    const prefill: TFormPrefill = {
       spec: {
         customizationId: 'cid',
         values: [
@@ -49,7 +50,7 @@ describe('resolveFormPrefillPartsOfUrl', () => {
   })
 
   test('replaces missing indexes with empty strings', () => {
-    const prefill: any = {
+    const prefill: TFormPrefill = {
       spec: {
         customizationId: 'cid',
         values: [{ path: ['metadata', 'name'], value: 'svc-{9}' }],
@@ -65,7 +66,7 @@ describe('resolveFormPrefillPartsOfUrl', () => {
   })
 
   test('does not modify non-string scalar values', () => {
-    const prefill: any = {
+    const prefill: TFormPrefill = {
       spec: {
         customizationId: 'cid',
         values: [
@@ -82,41 +83,5 @@ describe('resolveFormPrefillPartsOfUrl', () => {
     }
 
     expect(resolveFormPrefillPartsOfUrl({ prefill, partsOfUrl })).toEqual(prefill)
-  })
-
-  test('resolves placeholders in object-style values', () => {
-    const prefill: any = {
-      spec: {
-        customizationId: 'cid',
-        values: {
-          metadata: {
-            name: 'svc-{3}',
-          },
-          spec: {
-            selector: {
-              app: 'app-{3}',
-            },
-            ports: [{ name: 'http-{2}', port: 80 }],
-          },
-        },
-      },
-    }
-
-    expect(resolveFormPrefillPartsOfUrl({ prefill, partsOfUrl })).toEqual({
-      spec: {
-        customizationId: 'cid',
-        values: {
-          metadata: {
-            name: 'svc-incloud-web',
-          },
-          spec: {
-            selector: {
-              app: 'app-incloud-web',
-            },
-            ports: [{ name: 'http-default', port: 80 }],
-          },
-        },
-      },
-    })
   })
 })

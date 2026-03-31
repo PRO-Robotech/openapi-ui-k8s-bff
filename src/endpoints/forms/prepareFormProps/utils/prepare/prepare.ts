@@ -14,6 +14,7 @@ import {
   computePersistedPrefillPaths,
   getPathsFromOverride,
   normalizeFormPrefill,
+  resolveFormPrefillPartsOfUrl,
   resolvePrefillCustomizationId,
 } from './utils'
 
@@ -23,6 +24,7 @@ export const prepare = async ({
   formsPrefillsData,
   customizationId,
   customizationIdPrefill,
+  partsOfUrl,
   namespacesData,
 }: TPrepareForm): Promise<TPrepareFormRes> => {
   const swaggerPaths = await getClusterSwaggerPaths()
@@ -83,7 +85,8 @@ export const prepare = async ({
     customizationIdPrefill,
   })
   const selectedPrefill = formsPrefillsData?.items.find(item => item.spec.customizationId === prefillCustomizationId)
-  const normalizedPrefill = normalizeFormPrefill(selectedPrefill)
+  const resolvedPrefill = resolveFormPrefillPartsOfUrl({ prefill: selectedPrefill, partsOfUrl })
+  const normalizedPrefill = normalizeFormPrefill(resolvedPrefill)
   const autoPersistedFromSelectedPrefill = computePersistedFormPrefillPaths(normalizedPrefill)
 
   const { forceViewMode, hiddenPaths, expandedPaths, persistedPaths, sortPaths } = getPathsFromOverride({

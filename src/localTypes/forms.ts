@@ -19,6 +19,7 @@ export type TPrepareForm = {
         prefillValueNamespaceOnly?: string
       }
   cluster: string
+  partsOfUrl?: string[]
   formsOverridesData?: TFormsOverridesData
   formsPrefillsData?: TFormsPrefillsData
   customizationId?: string

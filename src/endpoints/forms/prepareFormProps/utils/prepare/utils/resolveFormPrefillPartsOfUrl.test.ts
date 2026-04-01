@@ -65,6 +65,40 @@ describe('resolveFormPrefillPartsOfUrl', () => {
     })
   })
 
+  test('preserves non-numeric placeholders in braces', () => {
+    const prefill: TFormPrefill = {
+      spec: {
+        customizationId: 'cid',
+        values: [
+          { path: ['spec', 'config'], value: '{protocol}://{host}:{port}/api/{3}' },
+          {
+            path: ['spec', 'nested'],
+            value: {
+              tpl: 'Hello {username}, cluster {2}',
+              json: '{"key": "val"}',
+            },
+          },
+        ],
+      },
+    }
+
+    expect(resolveFormPrefillPartsOfUrl({ prefill, partsOfUrl })).toEqual({
+      spec: {
+        customizationId: 'cid',
+        values: [
+          { path: ['spec', 'config'], value: '{protocol}://{host}:{port}/api/incloud-web' },
+          {
+            path: ['spec', 'nested'],
+            value: {
+              tpl: 'Hello {username}, cluster default',
+              json: '{"key": "val"}',
+            },
+          },
+        ],
+      },
+    })
+  })
+
   test('does not modify non-string scalar values', () => {
     const prefill: TFormPrefill = {
       spec: {

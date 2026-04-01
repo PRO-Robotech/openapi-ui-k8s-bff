@@ -1,27 +1,29 @@
 import _ from 'lodash'
 import { TFormPrefill } from 'src/localTypes/formExtensions'
-import { prepareTemplate } from 'src/utils/prepareTemplate'
+
+const resolveNumericPlaceholders = (template: string, partsOfUrl: string[]): string =>
+  template.replaceAll(/\{(\d+)\}/g, (_, index) => partsOfUrl[Number(index)] ?? '')
 
 const resolveTemplateStringsInValue = ({
   node,
-  replaceValues,
+  partsOfUrl,
 }: {
   node: unknown
-  replaceValues: Record<string, string | undefined>
+  partsOfUrl: string[]
 }): unknown => {
   if (typeof node === 'string') {
-    return prepareTemplate({ template: node, replaceValues })
+    return resolveNumericPlaceholders(node, partsOfUrl)
   }
 
   if (Array.isArray(node)) {
-    return node.map(value => resolveTemplateStringsInValue({ node: value, replaceValues }))
+    return node.map(value => resolveTemplateStringsInValue({ node: value, partsOfUrl }))
   }
 
   if (_.isPlainObject(node)) {
     return Object.fromEntries(
       Object.entries(node as Record<string, unknown>).map(([key, value]) => [
         key,
-        resolveTemplateStringsInValue({ node: value, replaceValues }),
+        resolveTemplateStringsInValue({ node: value, partsOfUrl }),
       ]),
     )
   }
@@ -38,11 +40,6 @@ export const resolveFormPrefillPartsOfUrl = ({
 }): TFormPrefill | undefined => {
   if (!prefill || !partsOfUrl?.length) return prefill
 
-  const replaceValues = partsOfUrl.reduce<Record<string, string | undefined>>((acc, value, index) => {
-    acc[index.toString()] = value
-    return acc
-  }, {})
-
   return {
     ...prefill,
     spec: {
@@ -51,7 +48,7 @@ export const resolveFormPrefillPartsOfUrl = ({
         ...entry,
         value: resolveTemplateStringsInValue({
           node: entry.value,
-          replaceValues,
+          partsOfUrl,
         }),
       })),
     },

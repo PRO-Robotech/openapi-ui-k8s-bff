@@ -10,7 +10,12 @@ import {
   getPathsWithAdditionalProperties,
   getPropertiesToMerge,
   computePersistedAPPaths,
+  computePersistedFormPrefillPaths,
+  computePersistedPrefillPaths,
   getPathsFromOverride,
+  normalizeFormPrefill,
+  resolveFormPrefillPartsOfUrl,
+  resolvePrefillCustomizationId,
 } from './utils'
 
 export const prepare = async ({
@@ -18,6 +23,8 @@ export const prepare = async ({
   formsOverridesData,
   formsPrefillsData,
   customizationId,
+  customizationIdPrefill,
+  partsOfUrl,
   namespacesData,
 }: TPrepareForm): Promise<TPrepareFormRes> => {
   const swaggerPaths = await getClusterSwaggerPaths()
@@ -70,13 +77,29 @@ export const prepare = async ({
     pathsWithAdditionalProperties,
     prefillValuesSchema: data.prefillValuesSchema,
   })
+  const autoPersistedFromPrefill = computePersistedPrefillPaths({
+    prefillValuesSchema: data.prefillValuesSchema,
+  })
+  const prefillCustomizationId = resolvePrefillCustomizationId({
+    customizationId,
+    customizationIdPrefill,
+  })
+  const selectedPrefill = formsPrefillsData?.items.find(item => item.spec.customizationId === prefillCustomizationId)
+  const normalizedPrefill = normalizeFormPrefill(selectedPrefill)
+  const resolvedPrefill = resolveFormPrefillPartsOfUrl({ prefill: normalizedPrefill, partsOfUrl })
+  const autoPersistedFromSelectedPrefill = computePersistedFormPrefillPaths(resolvedPrefill)
 
   const { forceViewMode, hiddenPaths, expandedPaths, persistedPaths, sortPaths } = getPathsFromOverride({
     specificCustomOverrides,
   })
 
   // merge persisted lists generically
-  const mergedPersistedPaths: string[][] = [...(persistedPaths || []), ...autoPersistedFromAP]
+  const mergedPersistedPaths: (string | number)[][] = [
+    ...(persistedPaths || []),
+    ...autoPersistedFromAP,
+    ...autoPersistedFromPrefill,
+    ...autoPersistedFromSelectedPrefill,
+  ]
 
   // ensure uniqueness (optional)
   const uniqPersisted = Array.from(new Map(mergedPersistedPaths.map(p => [p.join('\u0000'), p])).values())
@@ -98,7 +121,7 @@ export const prepare = async ({
     forceViewMode,
     kind,
     isNamespaced,
-    formPrefills: formsPrefillsData?.items.find(item => item.spec.customizationId === customizationId),
+    formPrefills: resolvedPrefill,
     namespacesData: namespacesData?.items?.map(item => item.metadata?.name).filter(Boolean),
   }
 }

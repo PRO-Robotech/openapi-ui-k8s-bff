@@ -3,6 +3,7 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { httpsAgent, baseUrl } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
+import { formatWsLogInput, getWsRawMessageMetadata, sanitizeWsLogPayload } from 'src/utils/wsLogSanitizer'
 
 export type TMessage = {
   type: string
@@ -47,9 +48,10 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
       ].join('')
 
       console.log(
-        `[${new Date().toISOString()}]: WebsocketPod: Connecting with user headers ${JSON.stringify(
-          DEVELOPMENT ? {} : filteredHeaders,
-        )}`,
+        `[${new Date().toISOString()}]: WebsocketPod: Connecting with user headers`,
+        formatWsLogInput(DEVELOPMENT ? '{}' : JSON.stringify(filteredHeaders), {
+          headers: DEVELOPMENT ? {} : filteredHeaders,
+        }),
       )
       try {
         const podWs = new WebSocket(execUrl, {
@@ -76,7 +78,14 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
         })
 
         podWs.on('error', error => {
-          console.error(`[${new Date().toISOString()}]: WebsocketPod: Pod WebSocket error:`, error)
+          console.error(
+            `[${new Date().toISOString()}]: WebsocketPod: Pod WebSocket error:`,
+            sanitizeWsLogPayload({
+              message: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined,
+              error,
+            }),
+          )
           const errorMessage = error instanceof Error ? error.message : String(error)
           sendError(ws, `Failed to connect to container: ${errorMessage}`)
         })
@@ -93,11 +102,14 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
           podWs.close()
         })
       } catch (error) {
-        console.error(`[${new Date().toISOString()}]: WebSocket: Error catched`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error: error,
-        })
+        console.error(
+          `[${new Date().toISOString()}]: WebSocket: Error catched`,
+          sanitizeWsLogPayload({
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error: error,
+          }),
+        )
         const errorMessage = error instanceof Error ? error.message : String(error)
         sendError(ws, `Connection error: ${errorMessage}`)
         ws.close()
@@ -105,26 +117,37 @@ export const terminalPodWebSocket: WebsocketRequestHandler = async (ws, req) => 
     }
 
     ws.once('message', (message: Buffer) => {
+      const rawMessage = message.toString()
       try {
-        console.log(`[${new Date().toISOString()}]: WebSocket: Init message:`, message.toString())
-        const parsedMessage = JSON.parse(message.toString()) as TMessage
+        const parsedMessage = JSON.parse(rawMessage) as TMessage
+        console.log(
+          `[${new Date().toISOString()}]: WebSocket: Init message:`,
+          formatWsLogInput(rawMessage, { message: parsedMessage }),
+        )
         handleInit(parsedMessage)
       } catch (error) {
-        console.error(`[${new Date().toISOString()}]: WebSocket: Invalid init message:`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error: error,
-        })
+        console.error(
+          `[${new Date().toISOString()}]: WebSocket: Invalid init message:`,
+          sanitizeWsLogPayload({
+            ...getWsRawMessageMetadata(rawMessage),
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error: error,
+          }),
+        )
         sendError(ws, 'Invalid message format')
         ws.close()
       }
     })
   } catch (error) {
-    console.error(`[${new Date().toISOString()}]: WebSocket: Error catched`, {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      error: error,
-    })
+    console.error(
+      `[${new Date().toISOString()}]: WebSocket: Error catched`,
+      sanitizeWsLogPayload({
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error,
+      }),
+    )
     const errorMessage = error instanceof Error ? error.message : String(error)
     sendError(ws, `Internal error: ${errorMessage}`)
     ws.close()

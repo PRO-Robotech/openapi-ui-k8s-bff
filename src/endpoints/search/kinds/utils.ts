@@ -46,6 +46,29 @@ export const toFlatRecords = (entry: {
     }),
   )
 
+export const toRawFlatRecords = (entry: {
+  group: string
+  version: string
+  preferred: boolean
+  groupVersion: string
+  resources: TAPIResource[]
+}): TFlatRecord[] =>
+  entry.resources.map(
+    (r): TFlatRecord => ({
+      key: `${entry.group}|${r.kind}`,
+      value: {
+        group: entry.group,
+        kind: r.kind,
+        version: entry.version,
+        groupVersion: entry.group === '' ? 'v1' : `${entry.group}/${entry.version}`,
+        preferred: entry.preferred,
+        namespaced: r.namespaced,
+        resource: r.name,
+        verbs: r.verbs,
+      },
+    }),
+  )
+
 export const groupByKind = (records: TFlatRecord[]): Record<string, TFlatRecord['value'][]> =>
   records.reduce<Record<string, TFlatRecord['value'][]>>(
     (acc, { key, value }) => ({

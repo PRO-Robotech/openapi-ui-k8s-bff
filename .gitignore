@@ -40,3 +40,7 @@ dist
 .vscode-test
 
 .env
+
+/*.md
+!/README.md
+.claude

@@ -4,6 +4,7 @@ import {
   TAdditionalPrinterColumnsUndefinedValues,
   TAdditionalPrinterColumnsTrimLengths,
   TAdditionalPrinterColumnsColWidths,
+  TAdditionalPrinterColumnsTooltips,
   TAdditionalPrinterColumnsKeyTypeProps,
   TAdditionalPrinterColumnsCustomSortersAndFilters,
 } from '../tableExtensions'
@@ -29,6 +30,7 @@ export type TPrepareTableRes = {
   additionalPrinterColumnsUndefinedValues?: TAdditionalPrinterColumnsUndefinedValues
   additionalPrinterColumnsTrimLengths?: TAdditionalPrinterColumnsTrimLengths
   additionalPrinterColumnsColWidths?: TAdditionalPrinterColumnsColWidths
+  additionalPrinterColumnsTooltips?: TAdditionalPrinterColumnsTooltips
   additionalPrinterColumnsKeyTypeProps?: TAdditionalPrinterColumnsKeyTypeProps
   additionalPrinterColumnsCustomSortersAndFilters?: TAdditionalPrinterColumnsCustomSortersAndFilters
   withoutControls?: boolean

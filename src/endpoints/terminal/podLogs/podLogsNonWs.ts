@@ -4,6 +4,7 @@ import { WebsocketRequestHandler } from 'express-ws'
 import { DEVELOPMENT } from 'src/constants/envs'
 import { baseUrl, userKubeApi } from 'src/constants/httpAgent'
 import { filterHeadersFromEnv } from 'src/utils/filterHeadersFromEnv'
+import { formatWsLogInput, getWsRawMessageMetadata, sanitizeWsLogPayload } from 'src/utils/wsLogSanitizer'
 
 export type TMessage = {
   type: string
@@ -23,7 +24,10 @@ export const startLogPolling = (
   let prevLatestTimestamp: Date | null = null
   let latestTimestamp: Date | null = null
 
-  console.log(`[${new Date().toISOString()}]: Websocket: Using headers to fetch ${JSON.stringify(headers)}`)
+  console.log(
+    `[${new Date().toISOString()}]: Websocket: Using headers to fetch`,
+    formatWsLogInput(JSON.stringify(headers), { headers }),
+  )
   const doFetch = async () => {
     try {
       const {
@@ -82,11 +86,14 @@ export const startLogPolling = (
         error?.response?.data ||
         (error instanceof Error ? error.message : String(error))
 
-      console.error('Error fetching logs:', {
-        message: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
-        error: error,
-      })
+      console.error(
+        'Error fetching logs:',
+        sanitizeWsLogPayload({
+          message: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error,
+        }),
+      )
 
       if (onError) {
         onError(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage))
@@ -116,7 +123,10 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
 
   const filteredHeaders = filterHeadersFromEnv(req)
 
-  console.log(`[${new Date().toISOString()}]: Websocket: Filtered Headers: ${JSON.stringify(filteredHeaders)}`)
+  console.log(
+    `[${new Date().toISOString()}]: Websocket: Filtered Headers:`,
+    formatWsLogInput(JSON.stringify(filteredHeaders), { headers: filteredHeaders }),
+  )
 
   try {
     const handleInit = async (message: TMessage) => {
@@ -214,24 +224,35 @@ export const podLogsNonWsWebSocket: WebsocketRequestHandler = async (ws, req) =>
     }
 
     ws.once('message', (message: Buffer) => {
+      const rawMessage = message.toString()
       try {
-        console.log(`[${new Date().toISOString()}]: WebSocket: Init message:`, message.toString())
-        const parsedMessage = JSON.parse(message.toString()) as TMessage
+        const parsedMessage = JSON.parse(rawMessage) as TMessage
+        console.log(
+          `[${new Date().toISOString()}]: WebSocket: Init message:`,
+          formatWsLogInput(rawMessage, { message: parsedMessage }),
+        )
         handleInit(parsedMessage)
       } catch (error) {
-        console.error(`[${new Date().toISOString()}]: WebSocket: Invalid init message:`, {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          error: error,
-        })
+        console.error(
+          `[${new Date().toISOString()}]: WebSocket: Invalid init message:`,
+          sanitizeWsLogPayload({
+            ...getWsRawMessageMetadata(rawMessage),
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error: error,
+          }),
+        )
         ws.close()
       }
     })
   } catch (error) {
-    console.error(`[${new Date().toISOString()}]: WebSocket: Error catched:`, {
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      error: error,
-    })
+    console.error(
+      `[${new Date().toISOString()}]: WebSocket: Error catched:`,
+      sanitizeWsLogPayload({
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error,
+      }),
+    )
   }
 }

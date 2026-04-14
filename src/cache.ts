@@ -123,9 +123,13 @@ export async function getV3SchemaForGroup(
       timeout: 10_000,
     })
 
-    cache.set(cacheKey, data, DEFAULT_TTL)
+    // dereference() accepts any JSON object at runtime (it's a generic $ref resolver),
+    // but its type signature expects APIDocument. The cast is safe — K8s v3 responses
+    // are valid OpenAPI 3.x documents; same pattern as v2 on line 24.
+    const derefed = (await dereference(data as never, { dereference: { circular: 'ignore' } })) as Record<string, unknown>
+    cache.set(cacheKey, derefed, DEFAULT_TTL)
     console.log(`[${new Date().toISOString()}]: v3 spec cached for ${v3Path}`)
-    return data
+    return derefed
   } catch (error) {
     cache.set(cacheKey, null, DEFAULT_TTL)
     console.warn(

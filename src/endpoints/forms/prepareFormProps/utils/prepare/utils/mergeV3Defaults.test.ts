@@ -258,17 +258,15 @@ describe('mergeV3Defaults', () => {
 
   describe('recursive merge into array-of-objects (items.properties)', () => {
     it('merges defaults into fields inside array items', () => {
-      const v2Properties = makeV2({
-        containers: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              protocol: { type: 'string' },
-              port: { type: 'integer' },
-            },
-          },
+      const containerItems: OpenAPIV2.SchemaObject = {
+        type: 'object',
+        properties: {
+          protocol: { type: 'string' },
+          port: { type: 'integer' },
         },
+      }
+      const v2Properties = makeV2({
+        containers: { type: 'array', items: containerItems as OpenAPIV2.ItemsObject },
       })
       const v3Doc = makeV3Doc('DemoApp', {
         containers: {
@@ -285,31 +283,25 @@ describe('mergeV3Defaults', () => {
 
       mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
 
-      const itemProps = (getSpec(v2Properties).containers.items as Record<string, unknown>)
+      const itemProps = (getSpec(v2Properties).containers.items as OpenAPIV2.SchemaObject)
         .properties as TV2Props
       expect(itemProps.protocol.default).toBe('TCP')
       expect(itemProps.port.default).toBe(8080)
     })
 
     it('merges defaults into deeply nested array items (array > object > array > object)', () => {
-      const v2Properties = makeV2({
-        groups: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              entries: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    timeout: { type: 'integer' },
-                  },
-                },
-              },
-            },
-          },
+      const entryItems: OpenAPIV2.SchemaObject = {
+        type: 'object',
+        properties: { timeout: { type: 'integer' } },
+      }
+      const groupItems: OpenAPIV2.SchemaObject = {
+        type: 'object',
+        properties: {
+          entries: { type: 'array', items: entryItems as OpenAPIV2.ItemsObject },
         },
+      }
+      const v2Properties = makeV2({
+        groups: { type: 'array', items: groupItems as OpenAPIV2.ItemsObject },
       })
       const v3Doc = makeV3Doc('DemoApp', {
         groups: {
@@ -333,10 +325,10 @@ describe('mergeV3Defaults', () => {
 
       mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
 
-      const groupItems = (getSpec(v2Properties).groups.items as Record<string, unknown>)
+      const resultGroupProps = (getSpec(v2Properties).groups.items as OpenAPIV2.SchemaObject)
         .properties as TV2Props
-      const entryItems = (groupItems.entries.items as Record<string, unknown>).properties as TV2Props
-      expect(entryItems.timeout.default).toBe(30)
+      const resultEntryProps = (resultGroupProps.entries.items as OpenAPIV2.SchemaObject).properties as TV2Props
+      expect(resultEntryProps.timeout.default).toBe(30)
     })
 
     it('does not recurse into items when items has no properties (primitive array)', () => {

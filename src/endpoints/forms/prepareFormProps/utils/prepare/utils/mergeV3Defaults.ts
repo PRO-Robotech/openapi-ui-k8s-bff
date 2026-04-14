@@ -4,6 +4,7 @@ type TV3Schema = {
   type?: string
   default?: unknown
   properties?: Record<string, TV3Schema>
+  items?: TV3Schema
 }
 
 type TV3Document = {
@@ -59,6 +60,14 @@ const mergeDefaultsRecursive = (
     const nestedV2 = v2Prop.properties
     if (v2Prop.type === 'object' && nestedV2 && v3Prop.properties) {
       mergeDefaultsRecursive(nestedV2, v3Prop.properties)
+      continue
+    }
+
+    // Recurse into array-of-objects (items.properties)
+    // After dereference, items is always SchemaObject (no $ref), but TS can't narrow the union
+    const v2Items = v2Prop.items as OpenAPIV2.SchemaObject | undefined
+    if (v2Prop.type === 'array' && v2Items?.properties && v3Prop.items?.properties) {
+      mergeDefaultsRecursive(v2Items.properties, v3Prop.items.properties)
       continue
     }
 

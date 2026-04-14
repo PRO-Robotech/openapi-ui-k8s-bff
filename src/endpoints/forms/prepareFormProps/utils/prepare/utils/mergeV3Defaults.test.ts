@@ -247,6 +247,104 @@ describe('mergeV3Defaults', () => {
     })
   })
 
+  describe('recursive merge into array-of-objects (items.properties)', () => {
+    it('merges defaults into fields inside array items', () => {
+      const v2Properties = makeV2({
+        containers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              protocol: { type: 'string' },
+              port: { type: 'integer' },
+            },
+          },
+        },
+      })
+      const v3Doc = makeV3Doc('DemoApp', {
+        containers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              protocol: { type: 'string', default: 'TCP' },
+              port: { type: 'integer', default: 8080 },
+            },
+          },
+        },
+      })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      const itemProps = (getSpec(v2Properties).containers.items as Record<string, unknown>)
+        .properties as TV2Props
+      expect(itemProps.protocol.default).toBe('TCP')
+      expect(itemProps.port.default).toBe(8080)
+    })
+
+    it('merges defaults into deeply nested array items (array > object > array > object)', () => {
+      const v2Properties = makeV2({
+        groups: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              entries: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    timeout: { type: 'integer' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })
+      const v3Doc = makeV3Doc('DemoApp', {
+        groups: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              entries: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    timeout: { type: 'integer', default: 30 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      const groupItems = (getSpec(v2Properties).groups.items as Record<string, unknown>)
+        .properties as TV2Props
+      const entryItems = (groupItems.entries.items as Record<string, unknown>).properties as TV2Props
+      expect(entryItems.timeout.default).toBe(30)
+    })
+
+    it('does not recurse into items when items has no properties (primitive array)', () => {
+      const v2Properties = makeV2({
+        tags: { type: 'array', items: { type: 'string' } },
+      })
+      const v3Doc = makeV3Doc('DemoApp', {
+        tags: { type: 'array', items: { type: 'string' }, default: ['a', 'b'] },
+      })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      // Should fall through to the string[] leaf default merge instead
+      expect(getSpec(v2Properties).tags.default).toEqual(['a', 'b'])
+    })
+  })
+
   describe('schema key matching', () => {
     it('matches kind by last segment of dotted key', () => {
       const v2Properties = makeV2({ port: { type: 'integer' } })

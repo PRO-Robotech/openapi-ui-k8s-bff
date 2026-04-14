@@ -107,14 +107,7 @@ export const mergeV3Defaults = ({
   const v3Schema = findV3SchemaByKind(v3Doc, kind)
   if (!v3Schema?.properties) return
 
-  // CRD schemas have spec/status/metadata at top level
-  const v3SpecProperties = v3Schema.properties.spec?.properties
-  const v2SpecProperties = v2Properties.spec?.properties
-
-  if (v3SpecProperties && v2SpecProperties) {
-    mergeDefaultsRecursive(v2SpecProperties, v3SpecProperties)
-  }
-
-  // Also check top-level properties (metadata, etc.) — less common but possible
+  // Walks all top-level properties (spec, metadata, etc.) and recurses
+  // into nested objects automatically via mergeDefaultsRecursive
   mergeDefaultsRecursive(v2Properties, v3Schema.properties)
 }

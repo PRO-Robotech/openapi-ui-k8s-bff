@@ -35,9 +35,10 @@ const findV3SchemaByKind = (v3Doc: TV3Document, kind: string): TV3Schema | undef
  * from the corresponding v3 schema into leaf properties that don't
  * already have a default.
  *
- * Only leaf fields (string, integer, number, boolean, enum-based types)
- * get defaults — object/array defaults are skipped to avoid the
- * "partial nested structure" problem.
+ * Only leaf fields get defaults: primitives (string, number, boolean)
+ * and string arrays (for multi-select / listInput fields).
+ * Object defaults are skipped to avoid the "partial nested structure"
+ * problem.
  *
  * Mutates `v2Properties` in place for efficiency (caller passes a
  * deep-cloned copy from `prepare.ts`).
@@ -65,6 +66,12 @@ const mergeDefaultsRecursive = (
     if (v3Prop.default !== undefined && v2Prop.default === undefined) {
       const defaultType = typeof v3Prop.default
       if (defaultType === 'string' || defaultType === 'number' || defaultType === 'boolean') {
+        v2Prop.default = v3Prop.default
+      } else if (
+        v2Prop.type === 'array'
+        && Array.isArray(v3Prop.default)
+        && v3Prop.default.every(item => typeof item === 'string')
+      ) {
         v2Prop.default = v3Prop.default
       }
     }

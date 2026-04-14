@@ -151,7 +151,7 @@ describe('mergeV3Defaults', () => {
     })
   })
 
-  describe('skips non-primitive defaults', () => {
+  describe('skips non-leaf defaults', () => {
     it('skips object defaults', () => {
       const v2Properties = makeV2({ config: { type: 'object' } })
       const v3Doc = makeV3Doc('DemoApp', { config: { type: 'object', default: { foo: 'bar' } } })
@@ -161,13 +161,60 @@ describe('mergeV3Defaults', () => {
       expect(getSpec(v2Properties).config).not.toHaveProperty('default')
     })
 
-    it('skips array defaults', () => {
-      const v2Properties = makeV2({ tags: { type: 'array' } })
-      const v3Doc = makeV3Doc('DemoApp', { tags: { type: 'array', default: ['a', 'b'] } })
+    it('skips array defaults with non-string items', () => {
+      const v2Properties = makeV2({ ids: { type: 'array' } })
+      const v3Doc = makeV3Doc('DemoApp', { ids: { type: 'array', default: [1, 2, 3] } })
 
       mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
 
-      expect(getSpec(v2Properties).tags).not.toHaveProperty('default')
+      expect(getSpec(v2Properties).ids).not.toHaveProperty('default')
+    })
+
+    it('skips array defaults with mixed items', () => {
+      const v2Properties = makeV2({ mixed: { type: 'array' } })
+      const v3Doc = makeV3Doc('DemoApp', { mixed: { type: 'array', default: ['a', 1] } })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      expect(getSpec(v2Properties).mixed).not.toHaveProperty('default')
+    })
+
+    it('skips array defaults on non-array v2 type', () => {
+      const v2Properties = makeV2({ field: { type: 'string' } })
+      const v3Doc = makeV3Doc('DemoApp', { field: { type: 'string', default: ['a', 'b'] } })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      expect(getSpec(v2Properties).field).not.toHaveProperty('default')
+    })
+  })
+
+  describe('string array defaults (listInput leaf fields)', () => {
+    it('merges string array default on array-typed field', () => {
+      const v2Properties = makeV2({ protocols: { type: 'array' } })
+      const v3Doc = makeV3Doc('DemoApp', { protocols: { type: 'array', default: ['TCP', 'UDP'] } })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      expect(getSpec(v2Properties).protocols.default).toEqual(['TCP', 'UDP'])
+    })
+
+    it('merges empty string array default', () => {
+      const v2Properties = makeV2({ tags: { type: 'array' } })
+      const v3Doc = makeV3Doc('DemoApp', { tags: { type: 'array', default: [] } })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      expect(getSpec(v2Properties).tags.default).toEqual([])
+    })
+
+    it('merges single-element string array default', () => {
+      const v2Properties = makeV2({ modes: { type: 'array' } })
+      const v3Doc = makeV3Doc('DemoApp', { modes: { type: 'array', default: ['default'] } })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      expect(getSpec(v2Properties).modes.default).toEqual(['default'])
     })
   })
 

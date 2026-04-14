@@ -1,5 +1,5 @@
 import _ from 'lodash'
-import { getClusterSwaggerPathByName, getClusterSwaggerPaths } from 'src/cache'
+import { getClusterSwaggerPathByName, getClusterSwaggerPaths, getV3SchemaForGroup } from 'src/cache'
 import { TPrepareForm } from 'src/localTypes/forms'
 import { TPrepareFormRes } from 'src/localTypes/endpoints/forms'
 import { deepMerge } from 'src/utils/deepMerge'
@@ -16,6 +16,7 @@ import {
   normalizeFormPrefill,
   resolveFormPrefillPartsOfUrl,
   resolvePrefillCustomizationId,
+  mergeV3Defaults,
 } from './utils'
 
 export const prepare = async ({
@@ -72,6 +73,14 @@ export const prepare = async ({
 
   const oldProperties = _.cloneDeep(mergedProperties)
   const newProperties = deepMerge(oldProperties, propertiesToMerge)
+
+  // Enrich with OpenAPI v3 defaults (v2 loses them during K8s v3→v2 conversion)
+  const v3Doc = await getV3SchemaForGroup(
+    data.type,
+    data.type === 'apis' ? data.apiGroup : undefined,
+    data.type === 'apis' ? data.apiVersion : undefined,
+  )
+  mergeV3Defaults({ v2Properties: newProperties, v3Doc, kind })
 
   const autoPersistedFromAP = computePersistedAPPaths({
     pathsWithAdditionalProperties,

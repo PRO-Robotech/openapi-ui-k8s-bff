@@ -95,6 +95,48 @@ export async function getClusterSwaggerPathByName(name: string): Promise<OpenAPI
   return swaggerPathValue
 }
 
+/**
+ * Fetch OpenAPI v3 spec for a specific API group/version.
+ * K8s serves v3 specs per group at /openapi/v3/apis/{group}/{version}
+ * (or /openapi/v3/api/v1 for core resources).
+ * Unlike v2, the v3 spec preserves CRD `default` values.
+ *
+ * Results are cached with the same TTL as the main swagger spec.
+ * Graceful degradation: returns undefined if v3 endpoint is unavailable
+ * (K8s < 1.27 or network error).
+ */
+export async function getV3SchemaForGroup(
+  type: 'builtin' | 'apis',
+  apiGroup?: string,
+  apiVersion?: string,
+): Promise<Record<string, unknown> | undefined> {
+  const v3Path = type === 'builtin' ? '/openapi/v3/api/v1' : `/openapi/v3/apis/${apiGroup}/${apiVersion}`
+  const cacheKey = `v3:${v3Path}`
+
+  const cached = cache.get<Record<string, unknown>>(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  try {
+    const { data } = await kubeApi.get<Record<string, unknown>>(v3Path, {
+      headers: { Accept: 'application/json' },
+      timeout: 10_000,
+    })
+
+    cache.set(cacheKey, data, DEFAULT_TTL)
+    console.log(`[${new Date().toISOString()}]: v3 spec cached for ${v3Path}`)
+    return data
+  } catch (error) {
+    console.log(
+      `[${new Date().toISOString()}]: v3 spec unavailable for ${v3Path}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    )
+    return undefined
+  }
+}
+
 cache.on('expired', (key: string) => {
   console.log(`[${new Date().toISOString()}]: Cache key "${key}" expired, reloading…`)
   if (key === 'swagger') {

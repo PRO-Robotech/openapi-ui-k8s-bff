@@ -113,9 +113,8 @@ export async function getV3SchemaForGroup(
   const v3Path = type === 'builtin' ? '/openapi/v3/api/v1' : `/openapi/v3/apis/${apiGroup}/${apiVersion}`
   const cacheKey = `v3:${v3Path}`
 
-  const cached = cache.get<Record<string, unknown>>(cacheKey)
-  if (cached) {
-    return cached
+  if (cache.has(cacheKey)) {
+    return cache.get<Record<string, unknown>>(cacheKey) ?? undefined
   }
 
   try {
@@ -128,7 +127,8 @@ export async function getV3SchemaForGroup(
     console.log(`[${new Date().toISOString()}]: v3 spec cached for ${v3Path}`)
     return data
   } catch (error) {
-    console.log(
+    cache.set(cacheKey, null, DEFAULT_TTL)
+    console.warn(
       `[${new Date().toISOString()}]: v3 spec unavailable for ${v3Path}: ${
         error instanceof Error ? error.message : String(error)
       }`,

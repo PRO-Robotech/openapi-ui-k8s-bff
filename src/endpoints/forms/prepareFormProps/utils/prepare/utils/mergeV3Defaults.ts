@@ -77,7 +77,7 @@ const mergeDefaultsRecursive = (
       if (defaultType === 'string' || defaultType === 'number' || defaultType === 'boolean') {
         v2Prop.default = v3Prop.default
       } else if (
-        v2Prop.type === 'array'
+        (v2Prop.type === 'array' || v2Prop.type === 'listInput')
         && Array.isArray(v3Prop.default)
         && v3Prop.default.every(item => typeof item === 'string')
       ) {

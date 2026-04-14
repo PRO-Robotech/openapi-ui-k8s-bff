@@ -216,6 +216,15 @@ describe('mergeV3Defaults', () => {
 
       expect(getSpec(v2Properties).modes.default).toEqual(['default'])
     })
+
+    it('merges string array default when v2 type is listInput (override)', () => {
+      const v2Properties = makeV2({ protocols: { type: 'listInput' as string } })
+      const v3Doc = makeV3Doc('DemoApp', { protocols: { type: 'array', default: ['TCP', 'UDP'] } })
+
+      mergeV3Defaults({ v2Properties, v3Doc, kind: 'DemoApp' })
+
+      expect(getSpec(v2Properties).protocols.default).toEqual(['TCP', 'UDP'])
+    })
   })
 
   describe('recursive merge into nested objects', () => {

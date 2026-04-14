@@ -79,7 +79,7 @@ const mergeDefaultsRecursive = (
 }
 
 const isTV3Document = (doc: Record<string, unknown>): doc is TV3Document => {
-  return typeof doc === 'object' && doc !== null && ('components' in doc || Object.keys(doc).length > 0)
+  return 'components' in doc
 }
 
 /**

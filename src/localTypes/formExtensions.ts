@@ -1,3 +1,5 @@
+import { TFormSchemaProperties } from './formSchema'
+
 export type TFormPrefillPathSeg = string | number
 
 export type TFormPrefillValueEntry = {
@@ -33,7 +35,7 @@ export type TFormOverride = {
     strategy: string
     forceViewMode?: 'OpenAPI' | 'Manual'
     schema: {
-      properties: Record<string, unknown>
+      properties: TFormSchemaProperties
       required?: string[]
     }
     hidden?: string[][]

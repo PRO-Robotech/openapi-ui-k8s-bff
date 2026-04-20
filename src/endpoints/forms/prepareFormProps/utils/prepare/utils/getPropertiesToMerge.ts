@@ -1,6 +1,6 @@
 // src/endpoints/forms/prepareFormProps/utils/getPropertiesToMerge.ts
 import _ from 'lodash'
-import { OpenAPIV2 } from 'openapi-types'
+import { TFormSchemaNode, TFormSchemaProperties } from 'src/localTypes/formSchema'
 
 type TArgs = {
   pathsWithAdditionalProperties: (string | number)[][]
@@ -18,12 +18,12 @@ type TArgs = {
  * So we widen the type locally instead of fighting openapi-types.
  */
 export type ExtendedSchemaObject = Omit<
-  OpenAPIV2.SchemaObject,
+  TFormSchemaNode,
   'type' | 'properties' | 'items' | 'additionalProperties'
 > & {
   type?: string | string[]
   properties?: Record<string, ExtendedSchemaObject>
-  items?: Omit<OpenAPIV2.ItemsObject, 'type'> & { type?: string | string[] }
+  items?: ExtendedSchemaObject
   additionalProperties?: boolean | ExtendedSchemaObject
   isAdditionalProperties?: boolean
 }
@@ -111,7 +111,7 @@ export const getPropertiesToMerge = ({
   pathsWithAdditionalProperties,
   prefillValuesSchema,
   mergedProperties,
-}: TArgs): { [name: string]: ExtendedSchemaObject } => {
+}: TArgs): TFormSchemaProperties => {
   if (!prefillValuesSchema) return {}
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -240,4 +240,41 @@ describe('getPropertiesToMerge', () => {
       isAdditionalProperties: true,
     })
   })
+
+  it('maps nested schema paths to nested prefill paths for additionalProperties objects', () => {
+    const prefillValuesSchema = {
+      spec: {
+        labels: {
+          env: 'dev',
+        },
+      },
+    }
+
+    const mergedProperties = {
+      spec: {
+        type: 'object',
+        properties: {
+          labels: {
+            type: 'object',
+            additionalProperties: {
+              type: 'string',
+            },
+            properties: {},
+          },
+        },
+      },
+    }
+
+    const result = getPropertiesToMerge({
+      pathsWithAdditionalProperties: [['spec', 'properties', 'labels']],
+      prefillValuesSchema,
+      mergedProperties,
+    })
+
+    expect(_.get(result, ['spec', 'properties', 'labels', 'properties', 'env'])).toMatchObject({
+      type: 'string',
+      default: 'dev',
+      isAdditionalProperties: true,
+    })
+  })
 })

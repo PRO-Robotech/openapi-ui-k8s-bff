@@ -1,26 +1,27 @@
-import _ from 'lodash'
-import { TFormSchemaProperties } from 'src/localTypes/formSchema'
+import { TFormSchemaNode, TFormSchemaProperties } from 'src/localTypes/formSchema'
 
-const walkSchema = ({
+const isSchemaNode = (value: unknown): value is TFormSchemaNode =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const walkSchemaNode = ({
   node,
   currentPath,
   result,
 }: {
-  node: unknown
+  node: TFormSchemaNode
   currentPath: (string | number)[]
   result: (string | number)[][]
 }): void => {
-  if (!node || typeof node !== 'object') return
+  if (node.additionalProperties !== undefined) {
+    result.push(currentPath)
+  }
 
-  Object.entries(node as Record<string, unknown>).forEach(([key, value]) => {
-    if (key === 'additionalProperties') {
-      result.push(currentPath)
-      return
-    }
+  Object.entries(node.properties || {}).forEach(([key, value]) => {
+    if (!isSchemaNode(value)) return
 
-    walkSchema({
+    walkSchemaNode({
       node: value,
-      currentPath: [...currentPath, key],
+      currentPath: [...currentPath, 'properties', key],
       result,
     })
   })
@@ -35,6 +36,15 @@ export const getPathsWithAdditionalProperties = ({
   currentPath?: (string | number)[]
   result?: (string | number)[][]
 }): (string | number)[][] => {
-  walkSchema({ node: properties, currentPath, result })
+  Object.entries(properties).forEach(([key, value]) => {
+    if (!isSchemaNode(value)) return
+
+    walkSchemaNode({
+      node: value,
+      currentPath: [...currentPath, key],
+      result,
+    })
+  })
+
   return result
 }

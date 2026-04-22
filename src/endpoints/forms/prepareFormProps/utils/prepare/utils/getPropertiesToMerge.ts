@@ -10,6 +10,9 @@ type TArgs = {
   mergedProperties: any
 }
 
+const toPrefillPath = (schemaPath: (string | number)[]): (string | number)[] =>
+  schemaPath.filter(segment => segment !== 'properties')
+
 /**
  * We support extensions beyond vanilla OpenAPI v2:
  * - custom schema "type" values (e.g. "multilineString")
@@ -118,7 +121,8 @@ export const getPropertiesToMerge = ({
   const result: any = {}
 
   for (const apPath of pathsWithAdditionalProperties) {
-    const valueUnderPath = _.get(prefillValuesSchema, apPath)
+    const prefillPath = toPrefillPath(apPath)
+    const valueUnderPath = _.get(prefillValuesSchema, prefillPath)
 
     // Important: additionalProperties parents must be plain objects, not arrays/null.
     if (!valueUnderPath || typeof valueUnderPath !== 'object' || Array.isArray(valueUnderPath)) {

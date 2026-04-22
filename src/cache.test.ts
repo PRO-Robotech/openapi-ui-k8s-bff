@@ -10,6 +10,7 @@ import { dereference } from '@readme/openapi-parser'
 import { kubeApi } from 'src/constants/httpAgent'
 import {
   cache,
+  getClusterSwagger,
   getOpenApiV3DiscoveryPath,
   getOpenApiV3Document,
   getOpenApiV3Index,
@@ -68,6 +69,17 @@ describe('cache openapi v3 helpers', () => {
 
     expect(mockedGet).toHaveBeenCalledTimes(1)
     expect(mockedGet).toHaveBeenCalledWith('/openapi/v3')
+  })
+
+  it('negative-caches unavailable v2 swagger fetches', async () => {
+    mockedGet.mockRejectedValueOnce(new Error('swagger unavailable'))
+
+    await expect(getClusterSwagger()).resolves.toBeUndefined()
+    await expect(getClusterSwagger()).resolves.toBeUndefined()
+
+    expect(mockedGet).toHaveBeenCalledTimes(1)
+    expect(mockedGet).toHaveBeenCalledWith('/openapi/v2')
+    expect(mockedDereference).not.toHaveBeenCalled()
   })
 
   it('caches and dereferences v3 document by serverRelativeURL', async () => {

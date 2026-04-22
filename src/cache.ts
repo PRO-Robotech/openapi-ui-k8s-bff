@@ -14,6 +14,7 @@ const OPENAPI_V3_INDEX_CACHE_KEY = 'openApiV3Index'
 const OPENAPI_V3_INDEX_NEGATIVE_CACHE_KEY = 'openApiV3Index:negative'
 const OPENAPI_V3_DOCUMENT_CACHE_KEY_PREFIX = 'openApiV3Document:'
 const OPENAPI_V3_DOCUMENT_NEGATIVE_CACHE_KEY_PREFIX = 'openApiV3Document:negative:'
+const SWAGGER_NEGATIVE_CACHE_KEY = 'swagger:negative'
 
 console.log(`[${new Date().toISOString()}]: cache module loaded`)
 
@@ -49,13 +50,20 @@ const getOpenApiV3DocumentNegativeCacheKey = (serverRelativeURL: string): string
   `${OPENAPI_V3_DOCUMENT_NEGATIVE_CACHE_KEY_PREFIX}${serverRelativeURL}`
 
 async function fetchSwaggerOnce(): Promise<OpenAPIV2.Document | undefined> {
+  if (hasNegativeCacheEntry(SWAGGER_NEGATIVE_CACHE_KEY)) {
+    console.log(`[${new Date().toISOString()}]: Cache get: ${SWAGGER_NEGATIVE_CACHE_KEY}`)
+    return undefined
+  }
+
   if (inflightV2Swagger) return inflightV2Swagger
   inflightV2Swagger = (async () => {
     try {
       const { data: rawSpec } = await kubeApi.get<OpenAPIV2.Document>(`/openapi/v2`)
       const derefedSpec = (await dereference(rawSpec, { dereference: { circular: 'ignore' } })) as OpenAPIV2.Document
+      clearNegativeCacheEntry(SWAGGER_NEGATIVE_CACHE_KEY)
       return derefedSpec
     } catch (error) {
+      setNegativeCacheEntry(SWAGGER_NEGATIVE_CACHE_KEY)
       console.error('Error fetching swagger:', {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,

@@ -101,6 +101,54 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('preserves example on leaf nodes and through singleton allOf unwrap', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          example: 'registry.example.com/app:v1.2.3',
+        },
+        metadata: {
+          description: "Standard object's metadata",
+          example: { name: 'demo' },
+          allOf: [
+            {
+              type: 'object',
+              properties: {
+                name: {
+                  type: 'string',
+                  example: 'demo',
+                },
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          example: 'registry.example.com/app:v1.2.3',
+        },
+        metadata: {
+          type: 'object',
+          description: "Standard object's metadata",
+          example: { name: 'demo' },
+          properties: {
+            name: {
+              type: 'string',
+              example: 'demo',
+            },
+          },
+        },
+      },
+    })
+  })
+
   it('preserves multi-entry allOf so unsupported policy can still catch it', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',

@@ -28,6 +28,8 @@ describe('prepareFormProps handler', () => {
   beforeEach(() => {
     jest.resetAllMocks()
     delete process.env.DEVELOPMENT
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'log').mockImplementation(() => {})
   })
 
   it('loads cluster form resources and returns prepared form payload', async () => {

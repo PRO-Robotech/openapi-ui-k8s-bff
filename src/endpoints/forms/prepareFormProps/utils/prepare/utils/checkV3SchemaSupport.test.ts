@@ -44,6 +44,36 @@ describe('checkV3SchemaSupport', () => {
     })
   })
 
+  it('tolerates metadata keywords like example, default, enum, description, nullable, deprecated', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          default: 'nginx:latest',
+          example: 'registry.example.com/app:v1.2.3',
+          description: 'Container image',
+        },
+        replicas: {
+          type: 'integer',
+          default: 3,
+          example: 5,
+          deprecated: true,
+        },
+        protocol: {
+          type: 'string',
+          enum: ['TCP', 'UDP'],
+          nullable: true,
+        },
+      },
+    }
+
+    expect(checkV3SchemaSupport(schema)).toEqual({
+      supported: true,
+      issues: [],
+    })
+  })
+
   it('flags unsupported keyword at the root level', () => {
     const schema = {
       type: 'object',

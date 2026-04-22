@@ -26,6 +26,8 @@ describe('formSync handlers', () => {
   beforeEach(() => {
     jest.resetAllMocks()
     delete process.env.DEVELOPMENT
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'log').mockImplementation(() => {})
   })
 
   it('getYamlValuesByFromValues returns transformed values', async () => {

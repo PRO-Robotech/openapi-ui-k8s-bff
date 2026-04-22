@@ -4,12 +4,16 @@ import {
   getOpenApiV3Index,
   getOpenApiV3ServerRelativeUrlFromIndex,
 } from 'src/cache'
+import { OpenAPIV3 } from 'openapi-types'
 import { TPrepareSchemaSourceData, TPrepareSchemaSourceResult } from './prepareSchemaSourceResult'
+import { checkV3SchemaSupport } from './checkV3SchemaSupport'
+import { getBodyParametersSchemaFromV3 } from './getBodyParametersSchemaFromV3'
+import { getSwaggerPathAndIsNamespaceScoped } from './getSwaggerPathAndIsNamespaceScoped'
 
 /**
- * Stage 5 wires the v3 source branch into discovery/cache.
- * Schema extraction from the fetched v3 document is intentionally deferred to
- * the next step so we can keep the migration incremental.
+ * Stage 6 makes the v3 source branch fully extractable for forms:
+ * discovery/cache comes from the previous step, then we resolve the create
+ * path, extract requestBody schema, and run the unsupported-keyword policy.
  */
 export const tryPrepareSchemaFromV3 = async ({
   data,
@@ -52,11 +56,50 @@ export const tryPrepareSchemaFromV3 = async ({
     }
   }
 
+  const swaggerPaths = Object.keys(document.paths || {})
+  const { swaggerPath, isNamespaced } = getSwaggerPathAndIsNamespaceScoped({
+    swaggerPaths,
+    data,
+  })
+  const swaggerPathValue = document.paths?.[swaggerPath]
+
+  const {
+    bodyParametersSchema,
+    kind,
+    error,
+  } = getBodyParametersSchemaFromV3({
+    swaggerPathValue: swaggerPathValue as OpenAPIV3.PathItemObject | undefined,
+    swaggerPath,
+  })
+
+  if (error || !bodyParametersSchema) {
+    return {
+      source: 'v3',
+      status: 'error',
+      error: error ?? `No body schema for ${swaggerPath}`,
+      isNamespaced,
+      kind,
+    }
+  }
+
+  const supportResult = checkV3SchemaSupport(bodyParametersSchema)
+
+  if (!supportResult.supported) {
+    return {
+      source: 'v3',
+      status: 'unsupported',
+      error: `Unsupported OpenAPI v3 schema for auto-generated form: ${swaggerPath}`,
+      issues: supportResult.issues,
+      isNamespaced,
+      kind,
+    }
+  }
+
   return {
     source: 'v3',
-    status: 'error',
-    error: `OpenAPI v3 document resolved for ${discoveryPath}, but schema extraction is not implemented yet`,
-    isNamespaced: false,
-    kind: undefined,
+    status: 'success',
+    bodyParametersSchema,
+    isNamespaced,
+    kind,
   }
 }

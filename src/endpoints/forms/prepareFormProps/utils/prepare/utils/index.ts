@@ -1,6 +1,7 @@
 export { getPropertiesToMerge } from './getPropertiesToMerge'
 export { getSwaggerPathAndIsNamespaceScoped } from './getSwaggerPathAndIsNamespaceScoped'
 export { getBodyParametersSchema } from './getBodyParametersSchema'
+export { getBodyParametersSchemaFromV3 } from './getBodyParametersSchemaFromV3'
 export { getPathsWithAdditionalProperties } from './getPathsWithAdditionalProperties'
 export { processOverrideSchema } from './processOverride'
 export { getPathsFromOverride } from './getPathsFromOverride'

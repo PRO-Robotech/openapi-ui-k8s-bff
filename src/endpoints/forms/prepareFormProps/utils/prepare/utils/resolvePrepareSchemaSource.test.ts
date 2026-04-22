@@ -120,4 +120,46 @@ describe('resolvePrepareSchemaSource', () => {
     })
     expect(mockedTryPrepareSchemaFromV2).toHaveBeenCalledWith({ data })
   })
+
+  it('falls back to a usable v2 schema when v3 extraction fails technically', async () => {
+    mockedTryPrepareSchemaFromV3.mockResolvedValue({
+      source: 'v3',
+      status: 'error',
+      error: 'Failed to resolve requestBody',
+      isNamespaced: true,
+      kind: 'Widget',
+    })
+    mockedTryPrepareSchemaFromV2.mockResolvedValue({
+      source: 'v2',
+      status: 'success',
+      bodyParametersSchema: {
+        type: 'object',
+        properties: {
+          spec: {
+            type: 'object',
+          },
+        },
+      },
+      isNamespaced: true,
+      kind: 'Widget',
+    })
+
+    const result = await resolvePrepareSchemaSource({ data })
+
+    expect(result).toEqual({
+      source: 'v2',
+      status: 'success',
+      bodyParametersSchema: {
+        type: 'object',
+        properties: {
+          spec: {
+            type: 'object',
+          },
+        },
+      },
+      isNamespaced: true,
+      kind: 'Widget',
+    })
+    expect(mockedTryPrepareSchemaFromV2).toHaveBeenCalledWith({ data })
+  })
 })

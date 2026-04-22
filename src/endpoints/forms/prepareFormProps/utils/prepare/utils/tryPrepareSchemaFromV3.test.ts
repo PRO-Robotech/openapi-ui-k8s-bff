@@ -204,4 +204,104 @@ describe('tryPrepareSchemaFromV3', () => {
       kind: 'Widget',
     })
   })
+
+  it('normalizes singleton metadata allOf wrappers before support check', async () => {
+    mockedGetOpenApiV3Index.mockResolvedValue({
+      paths: {
+        'apis/demo.example.io/v1': {
+          serverRelativeURL: '/openapi/v3/apis/demo.example.io/v1?hash=abc',
+        },
+      },
+    })
+    mockedGetOpenApiV3ServerRelativeUrlFromIndex.mockReturnValue('/openapi/v3/apis/demo.example.io/v1?hash=abc')
+    mockedGetOpenApiV3Document.mockResolvedValue({
+      openapi: '3.0.0',
+      info: { title: 'demo', version: 'v1' },
+      paths: {
+        '/apis/demo.example.io/v1/widgets': {
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      kind: {
+                        type: 'string',
+                        enum: ['Widget'],
+                      },
+                      metadata: {
+                        description: "Standard object's metadata",
+                        allOf: [
+                          {
+                            type: 'object',
+                            properties: {
+                              name: {
+                                type: 'string',
+                              },
+                              namespace: {
+                                type: 'string',
+                              },
+                            },
+                          },
+                        ],
+                      },
+                      spec: {
+                        type: 'object',
+                        properties: {
+                          replicas: {
+                            type: 'integer',
+                            default: 3,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    } as any)
+
+    const result = await tryPrepareSchemaFromV3({ data })
+
+    expect(result).toEqual({
+      source: 'v3',
+      status: 'success',
+      bodyParametersSchema: {
+        type: 'object',
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['Widget'],
+          },
+          metadata: {
+            type: 'object',
+            description: "Standard object's metadata",
+            properties: {
+              name: {
+                type: 'string',
+              },
+              namespace: {
+                type: 'string',
+              },
+            },
+          },
+          spec: {
+            type: 'object',
+            properties: {
+              replicas: {
+                type: 'integer',
+                default: 3,
+              },
+            },
+          },
+        },
+      },
+      isNamespaced: false,
+      kind: 'Widget',
+    })
+  })
 })

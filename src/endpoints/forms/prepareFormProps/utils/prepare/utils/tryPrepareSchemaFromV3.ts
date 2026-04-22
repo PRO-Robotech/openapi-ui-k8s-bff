@@ -9,6 +9,7 @@ import { TPrepareSchemaSourceData, TPrepareSchemaSourceResult } from './prepareS
 import { checkV3SchemaSupport } from './checkV3SchemaSupport'
 import { getBodyParametersSchemaFromV3 } from './getBodyParametersSchemaFromV3'
 import { getSwaggerPathAndIsNamespaceScoped } from './getSwaggerPathAndIsNamespaceScoped'
+import { normalizeV3SchemaForForms } from './normalizeV3SchemaForForms'
 
 /**
  * Stage 6 makes the v3 source branch fully extractable for forms:
@@ -82,7 +83,8 @@ export const tryPrepareSchemaFromV3 = async ({
     }
   }
 
-  const supportResult = checkV3SchemaSupport(bodyParametersSchema)
+  const normalizedBodyParametersSchema = normalizeV3SchemaForForms(bodyParametersSchema)
+  const supportResult = checkV3SchemaSupport(normalizedBodyParametersSchema)
 
   if (!supportResult.supported) {
     return {
@@ -98,7 +100,7 @@ export const tryPrepareSchemaFromV3 = async ({
   return {
     source: 'v3',
     status: 'success',
-    bodyParametersSchema,
+    bodyParametersSchema: normalizedBodyParametersSchema,
     isNamespaced,
     kind,
   }

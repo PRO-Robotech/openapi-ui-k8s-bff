@@ -304,4 +304,153 @@ describe('tryPrepareSchemaFromV3', () => {
       kind: 'Widget',
     })
   })
+
+  it('returns success when compatible multi-entry allOf can be flattened for the form', async () => {
+    mockedGetOpenApiV3Index.mockResolvedValue({
+      paths: {
+        'apis/demo.example.io/v1': {
+          serverRelativeURL: '/openapi/v3/apis/demo.example.io/v1?hash=abc',
+        },
+      },
+    })
+    mockedGetOpenApiV3ServerRelativeUrlFromIndex.mockReturnValue('/openapi/v3/apis/demo.example.io/v1?hash=abc')
+    mockedGetOpenApiV3Document.mockResolvedValue({
+      openapi: '3.0.0',
+      info: { title: 'demo', version: 'v1' },
+      paths: {
+        '/apis/demo.example.io/v1/widgets': {
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      kind: {
+                        type: 'string',
+                        enum: ['Widget'],
+                      },
+                      spec: {
+                        description: 'Desired widget spec',
+                        allOf: [
+                          {
+                            type: 'object',
+                            properties: {
+                              replicas: {
+                                type: 'integer',
+                                default: 3,
+                              },
+                            },
+                            required: ['replicas'],
+                          },
+                          {
+                            type: 'object',
+                            properties: {
+                              image: {
+                                type: 'string',
+                              },
+                            },
+                            required: ['image'],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    } as any)
+
+    const result = await tryPrepareSchemaFromV3({ data })
+
+    expect(result).toEqual({
+      source: 'v3',
+      status: 'success',
+      bodyParametersSchema: {
+        type: 'object',
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['Widget'],
+          },
+          spec: {
+            type: 'object',
+            description: 'Desired widget spec',
+            properties: {
+              replicas: {
+                type: 'integer',
+                default: 3,
+              },
+              image: {
+                type: 'string',
+              },
+            },
+            required: ['replicas', 'image'],
+          },
+        },
+      },
+      isNamespaced: false,
+      kind: 'Widget',
+    })
+  })
+
+  it('keeps conflicting multi-entry allOf in manual fallback path', async () => {
+    mockedGetOpenApiV3Index.mockResolvedValue({
+      paths: {
+        'apis/demo.example.io/v1': {
+          serverRelativeURL: '/openapi/v3/apis/demo.example.io/v1?hash=abc',
+        },
+      },
+    })
+    mockedGetOpenApiV3ServerRelativeUrlFromIndex.mockReturnValue('/openapi/v3/apis/demo.example.io/v1?hash=abc')
+    mockedGetOpenApiV3Document.mockResolvedValue({
+      openapi: '3.0.0',
+      info: { title: 'demo', version: 'v1' },
+      paths: {
+        '/apis/demo.example.io/v1/widgets': {
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      kind: {
+                        type: 'string',
+                        enum: ['Widget'],
+                      },
+                      spec: {
+                        allOf: [
+                          {
+                            type: 'object',
+                          },
+                          {
+                            type: 'string',
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    } as any)
+
+    const result = await tryPrepareSchemaFromV3({ data })
+
+    expect(result).toEqual({
+      source: 'v3',
+      status: 'unsupported',
+      error: 'Unsupported OpenAPI v3 schema for auto-generated form: /apis/demo.example.io/v1/widgets',
+      issues: [{ keyword: 'allOf', path: ['spec'] }],
+      isNamespaced: false,
+      kind: 'Widget',
+    })
+  })
 })

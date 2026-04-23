@@ -3,6 +3,7 @@ import { TFormSchemaNode, TFormSchemaProperties } from 'src/localTypes/formSchem
 
 type TV3FormSchemaNode = TFormSchemaNode & {
   allOf?: TV3FormSchemaNode[]
+  oneOf?: TV3FormSchemaNode[]
 }
 
 type TMergeOptions = {
@@ -159,6 +160,7 @@ const mergeSchemaNodes = (
     additionalProperties: baseAdditionalProperties,
     required: baseRequired,
     enum: baseEnum,
+    oneOfRequiredGroups: baseOneOfRequiredGroups,
     default: baseDefault,
     example: baseExample,
     nullable: _baseNullable,
@@ -178,6 +180,7 @@ const mergeSchemaNodes = (
     additionalProperties: overlayAdditionalProperties,
     required: overlayRequired,
     enum: overlayEnum,
+    oneOfRequiredGroups: overlayOneOfRequiredGroups,
     default: overlayDefault,
     example: overlayExample,
     nullable: _overlayNullable,
@@ -207,6 +210,9 @@ const mergeSchemaNodes = (
 
   const mergedEnum = mergeEnum(baseEnum, overlayEnum)
   if (mergedEnum === MERGE_CONFLICT) return undefined
+
+  const mergedOneOfRequiredGroups = mergeStrictValue(baseOneOfRequiredGroups, overlayOneOfRequiredGroups)
+  if (mergedOneOfRequiredGroups === MERGE_CONFLICT) return undefined
 
   const mergedDefault = mergeAnnotationValue(baseDefault, overlayDefault, options)
   if (mergedDefault === MERGE_CONFLICT) return undefined
@@ -238,6 +244,7 @@ const mergeSchemaNodes = (
     ...(mergedAdditionalProperties !== undefined ? { additionalProperties: mergedAdditionalProperties } : {}),
     ...(mergedRequired ? { required: mergedRequired } : {}),
     ...(mergedEnum ? { enum: mergedEnum } : {}),
+    ...(mergedOneOfRequiredGroups !== undefined ? { oneOfRequiredGroups: mergedOneOfRequiredGroups } : {}),
     ...(mergedDefault !== undefined ? { default: mergedDefault } : {}),
     ...(mergedExample !== undefined ? { example: mergedExample } : {}),
     ...(mergedNullable ? { nullable: mergedNullable } : {}),
@@ -283,6 +290,64 @@ const normalizeAllOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
   return mergedWithWrapper || node
 }
 
+const isSupportedOneOfPropertyMarker = (value: unknown): boolean => {
+  return isSchemaNode(value) && Object.keys(value).length === 0
+}
+
+const extractSupportedOneOfRequiredGroups = (node: TV3FormSchemaNode): string[][] | undefined => {
+  if (!Array.isArray(node.oneOf) || node.oneOf.length === 0) {
+    return undefined
+  }
+
+  if (node.type !== 'object' && !node.properties) {
+    return undefined
+  }
+
+  const groups: string[][] = []
+
+  for (const entry of node.oneOf) {
+    if (!isSchemaNode(entry)) {
+      return undefined
+    }
+
+    const { required, properties, ...rest } = entry
+
+    if (Object.keys(rest).length > 0) {
+      return undefined
+    }
+
+    if (!Array.isArray(required) || required.length === 0 || required.some(value => typeof value !== 'string' || !value)) {
+      return undefined
+    }
+
+    if (
+      properties &&
+      Object.entries(properties).some(([key, value]) => !required.includes(key) || !isSupportedOneOfPropertyMarker(value))
+    ) {
+      return undefined
+    }
+
+    groups.push(Array.from(new Set(required)))
+  }
+
+  return groups
+}
+
+const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
+  const oneOfRequiredGroups = extractSupportedOneOfRequiredGroups(node)
+
+  if (!oneOfRequiredGroups) {
+    return node
+  }
+
+  const { oneOf: _oneOf, ...nodeWithoutOneOf } = node
+
+  return {
+    ...nodeWithoutOneOf,
+    oneOfRequiredGroups,
+  }
+}
+
 const normalizeSchemaNode = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
   const normalizedProperties = node.properties
     ? Object.fromEntries(
@@ -297,6 +362,9 @@ const normalizeSchemaNode = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
   const normalizedAllOf = Array.isArray(node.allOf)
     ? node.allOf.map(item => (isSchemaNode(item) ? normalizeSchemaNode(item) : item))
     : node.allOf
+  const normalizedOneOf = Array.isArray(node.oneOf)
+    ? node.oneOf.map(item => (isSchemaNode(item) ? normalizeSchemaNode(item) : item))
+    : node.oneOf
 
   const normalizedNode: TV3FormSchemaNode = {
     ...node,
@@ -304,9 +372,10 @@ const normalizeSchemaNode = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
     ...(normalizedItems ? { items: normalizedItems } : {}),
     ...(normalizedAdditionalProperties !== undefined ? { additionalProperties: normalizedAdditionalProperties } : {}),
     ...(normalizedAllOf ? { allOf: normalizedAllOf } : {}),
+    ...(normalizedOneOf ? { oneOf: normalizedOneOf } : {}),
   }
 
-  return normalizeAllOf(normalizedNode)
+  return normalizeOneOf(normalizeAllOf(normalizedNode))
 }
 
 /**

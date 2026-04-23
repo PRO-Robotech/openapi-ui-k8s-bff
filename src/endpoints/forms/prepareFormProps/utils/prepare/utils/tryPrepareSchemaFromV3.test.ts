@@ -205,6 +205,79 @@ describe('tryPrepareSchemaFromV3', () => {
     })
   })
 
+  it('returns success when oneOf is lowered into supported required-group validation metadata', async () => {
+    mockedGetOpenApiV3Index.mockResolvedValue({
+      paths: {
+        'apis/demo.example.io/v1': {
+          serverRelativeURL: '/openapi/v3/apis/demo.example.io/v1?hash=abc',
+        },
+      },
+    })
+    mockedGetOpenApiV3ServerRelativeUrlFromIndex.mockReturnValue('/openapi/v3/apis/demo.example.io/v1?hash=abc')
+    mockedGetOpenApiV3Document.mockResolvedValue({
+      openapi: '3.0.0',
+      info: { title: 'demo', version: 'v1' },
+      paths: {
+        '/apis/demo.example.io/v1/widgets': {
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      kind: {
+                        type: 'string',
+                        enum: ['Widget'],
+                      },
+                      spec: {
+                        type: 'object',
+                        properties: {
+                          command: { type: 'string' },
+                          shell: { type: 'string' },
+                        },
+                        oneOf: [
+                          { required: ['command'] },
+                          { required: ['shell'] },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    } as any)
+
+    const result = await tryPrepareSchemaFromV3({ data })
+
+    expect(result).toEqual({
+      source: 'v3',
+      status: 'success',
+      bodyParametersSchema: {
+        type: 'object',
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['Widget'],
+          },
+          spec: {
+            type: 'object',
+            properties: {
+              command: { type: 'string' },
+              shell: { type: 'string' },
+            },
+            oneOfRequiredGroups: [['command'], ['shell']],
+          },
+        },
+      },
+      isNamespaced: false,
+      kind: 'Widget',
+    })
+  })
+
   it('normalizes singleton metadata allOf wrappers before support check', async () => {
     mockedGetOpenApiV3Index.mockResolvedValue({
       paths: {

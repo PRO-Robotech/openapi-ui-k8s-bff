@@ -291,6 +291,89 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('lowers supported oneOf required-groups into normalized form metadata', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          properties: {
+            command: { type: 'string' },
+            shell: { type: 'string' },
+          },
+          oneOf: [
+            { required: ['command'] } as any,
+            { required: ['shell'] } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          properties: {
+            command: { type: 'string' },
+            shell: { type: 'string' },
+          },
+          oneOfRequiredGroups: [['command'], ['shell']],
+        },
+      },
+    })
+  })
+
+  it('keeps unsupported oneOf branches untouched so policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          properties: {
+            command: { type: 'string' },
+            shell: { type: 'string' },
+          },
+          oneOf: [
+            { required: ['command'] } as any,
+            {
+              required: ['shell'],
+              properties: {
+                shell: {
+                  minLength: 1,
+                },
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          properties: {
+            command: { type: 'string' },
+            shell: { type: 'string' },
+          },
+          oneOf: [
+            { required: ['command'] },
+            {
+              required: ['shell'],
+              properties: {
+                shell: {
+                  minLength: 1,
+                },
+              },
+            },
+          ],
+        },
+      },
+    })
+  })
+
   it('preserves conflicting multi-entry allOf so unsupported policy can still catch it', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',

@@ -11,6 +11,26 @@ type TMergeOptions = {
 }
 
 const MERGE_CONFLICT = Symbol('mergeConflict')
+const warnedUnknownSchemaKeywords = new Set<string>()
+const knownSchemaNodeKeys = new Set([
+  'allOf',
+  'oneOf',
+  'oneOfRequiredGroups',
+  'type',
+  'properties',
+  'items',
+  'additionalProperties',
+  'required',
+  'enum',
+  'default',
+  'example',
+  'nullable',
+  'description',
+  'customProps',
+  'isAdditionalProperties',
+  'x-kubernetes-preserve-unknown-fields',
+  'x-kubernetes-int-or-string',
+])
 
 const isSchemaNode = (value: unknown): value is TV3FormSchemaNode =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -77,7 +97,34 @@ const mergeAnnotationValue = <T>(
 const schemaAllowsNull = (node: TV3FormSchemaNode): boolean => {
   if (node.nullable === true) return true
 
+  // An empty schema places no value restrictions, so JSON null remains valid.
+  // As soon as `type` or `enum` appears, null is no longer allowed unless
+  // the schema explicitly opts back in with `nullable: true`.
   return node.type === undefined && node.enum === undefined
+}
+
+const warnAboutUnknownSchemaKeywords = (node: TV3FormSchemaNode): void => {
+  if (process.env.NODE_ENV !== 'development') {
+    return
+  }
+
+  const unknownKeys = Object.keys(node).filter(key => !knownSchemaNodeKeys.has(key))
+
+  if (unknownKeys.length === 0) {
+    return
+  }
+
+  const warningKey = unknownKeys.slice().sort().join(',')
+
+  if (warnedUnknownSchemaKeywords.has(warningKey)) {
+    return
+  }
+
+  warnedUnknownSchemaKeywords.add(warningKey)
+
+  console.warn('[openapi-v3-normalize]: unknown schema keyword(s) encountered during form normalization', {
+    unknownKeys,
+  })
 }
 
 const mergeNullable = (base: TV3FormSchemaNode, overlay: TV3FormSchemaNode): boolean | undefined => {
@@ -303,6 +350,10 @@ const extractSupportedOneOfRequiredGroups = (node: TV3FormSchemaNode): string[][
     return undefined
   }
 
+  if (!node.properties || Object.keys(node.properties).length === 0) {
+    return undefined
+  }
+
   const groups: string[][] = []
 
   for (const entry of node.oneOf) {
@@ -349,6 +400,8 @@ const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
 }
 
 const normalizeSchemaNode = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
+  warnAboutUnknownSchemaKeywords(node)
+
   const normalizedProperties = node.properties
     ? Object.fromEntries(
         Object.entries(node.properties).map(([key, value]) => [key, normalizeSchemaNode(value as TV3FormSchemaNode)]),

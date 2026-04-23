@@ -374,6 +374,112 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('does not lower oneOf required-groups for object nodes without declared properties', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          oneOf: [{ required: ['command'] } as any, { required: ['shell'] } as any],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          oneOf: [{ required: ['command'] }, { required: ['shell'] }],
+        },
+      },
+    })
+  })
+
+  it('preserves conflicting oneOfRequiredGroups coming from different allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          allOf: [
+            {
+              type: 'object',
+              properties: {
+                command: {
+                  type: 'string',
+                },
+              },
+              oneOf: [{ required: ['command'] }] as any,
+            } as any,
+            {
+              type: 'object',
+              properties: {
+                shell: {
+                  type: 'string',
+                },
+              },
+              oneOf: [{ required: ['shell'] }] as any,
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          allOf: [
+            {
+              type: 'object',
+              properties: {
+                command: {
+                  type: 'string',
+                },
+              },
+              oneOfRequiredGroups: [['command']],
+            },
+            {
+              type: 'object',
+              properties: {
+                shell: {
+                  type: 'string',
+                },
+              },
+              oneOfRequiredGroups: [['shell']],
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('warns in development when unknown schema keywords are encountered', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'development'
+
+    normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'string',
+          format: 'date-time',
+        } as any,
+      },
+    })
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[openapi-v3-normalize]: unknown schema keyword(s) encountered during form normalization',
+      {
+        unknownKeys: ['format'],
+      },
+    )
+
+    process.env.NODE_ENV = previousNodeEnv
+    warnSpy.mockRestore()
+  })
+
   it('preserves conflicting multi-entry allOf so unsupported policy can still catch it', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',

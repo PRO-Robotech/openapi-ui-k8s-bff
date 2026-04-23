@@ -1,6 +1,6 @@
 import _ from 'lodash'
-import { OpenAPIV2 } from 'openapi-types'
 import { TFormOverride } from 'src/localTypes/formExtensions'
+import { TFormSchemaProperties } from 'src/localTypes/formSchema'
 import { deepMerge } from 'src/utils/deepMerge'
 import { overwriteMatchingKeys } from './utils'
 
@@ -15,7 +15,7 @@ export const processOverrideSchema = ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bodyParametersSchema: any
 }): {
-  propertiesToApply: { [name: string]: OpenAPIV2.SchemaObject }
+  propertiesToApply: TFormSchemaProperties
   requiredToApply?: string[]
 } => {
   let propertiesToApply = newProperties
@@ -25,9 +25,7 @@ export const processOverrideSchema = ({
     // full replace
     if (specificCustomOverrides.spec.strategy === 'fullReplace') {
       if (specificCustomOverrides.spec.schema.properties) {
-        propertiesToApply = specificCustomOverrides.spec.schema.properties as {
-          [name: string]: OpenAPIV2.SchemaObject
-        }
+        propertiesToApply = specificCustomOverrides.spec.schema.properties
       } else {
         propertiesToApply = newProperties
       }

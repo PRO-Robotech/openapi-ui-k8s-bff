@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-param-reassign */
 import { TFormName } from 'src/localTypes/forms'
+import { TFormSchemaNode, TFormSchemaProperties } from 'src/localTypes/formSchema'
 
 // export const removeEmptyFormValues = (object: any) => {
 //   if (typeof object === 'object' && !Array.isArray(object) && object !== null) {
@@ -74,10 +75,39 @@ const isSamePath = (a: PathSeg[], b: PathSeg[]) => a.length === b.length && a.ev
 const isPathPersisted = (path: PathSeg[], persisted: TFormName[]) =>
   persisted.some(p => isSamePath(path, Array.isArray(p) ? p : [p]))
 
-const clean = (value: any, persisted: TFormName[], path: PathSeg[]): MaybeOmit<any> => {
-  // Remove null/undefined unless persisted
+export const isPathNullable = (path: PathSeg[], properties?: TFormSchemaProperties): boolean => {
+  if (!properties || path.length === 0) return false
+
+  let node: TFormSchemaNode | undefined
+  let currentProperties: TFormSchemaProperties | undefined = properties
+
+  for (const seg of path) {
+    if (typeof seg === 'number') {
+      // Numeric index inside an array: descend into items shape.
+      if (!node?.items) return false
+      node = node.items
+      currentProperties = node.properties
+    } else {
+      if (!currentProperties?.[seg]) return false
+      node = currentProperties[seg]
+      currentProperties = node.properties
+    }
+  }
+
+  return node?.nullable === true
+}
+
+const clean = (
+  value: any,
+  persisted: TFormName[],
+  properties: TFormSchemaProperties | undefined,
+  path: PathSeg[],
+): MaybeOmit<any> => {
+  // Remove null/undefined unless persisted or schema-nullable (null only).
   if (value === null || value === undefined) {
-    return isPathPersisted(path, persisted) ? value : OMIT
+    if (isPathPersisted(path, persisted)) return value
+    if (value === null && isPathNullable(path, properties)) return value
+    return OMIT
   }
 
   // Primitives
@@ -90,7 +120,9 @@ const clean = (value: any, persisted: TFormName[], path: PathSeg[]): MaybeOmit<a
 
   // Arrays
   if (Array.isArray(value)) {
-    const cleanedItems = value.map((item, idx) => clean(item, persisted, [...path, idx])).filter(item => item !== OMIT)
+    const cleanedItems = value
+      .map((item, idx) => clean(item, persisted, properties, [...path, idx]))
+      .filter(item => item !== OMIT)
 
     if (cleanedItems.length === 0) {
       return isPathPersisted(path, persisted) ? [] : OMIT
@@ -101,7 +133,7 @@ const clean = (value: any, persisted: TFormName[], path: PathSeg[]): MaybeOmit<a
   // Plain objects
   const cleanedEntries = Object.entries(value)
     .map(([k, v]) => {
-      const cleaned = clean(v, persisted, [...path, k])
+      const cleaned = clean(v, persisted, properties, [...path, k])
       return cleaned === OMIT ? null : ([k, cleaned] as const)
     })
     .filter((e): e is readonly [string, any] => e !== null)
@@ -113,8 +145,12 @@ const clean = (value: any, persisted: TFormName[], path: PathSeg[]): MaybeOmit<a
   return Object.fromEntries(cleanedEntries)
 }
 
-export const removeEmptyFormValues = (input: any, persistedKeys: TFormName[]): any => {
-  const out = clean(input, persistedKeys, [])
+export const removeEmptyFormValues = (
+  input: any,
+  persistedKeys: TFormName[],
+  properties?: TFormSchemaProperties,
+): any => {
+  const out = clean(input, persistedKeys, properties, [])
   return out === OMIT ? undefined : out
 }
 

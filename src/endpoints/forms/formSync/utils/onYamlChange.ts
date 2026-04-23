@@ -1,4 +1,4 @@
-import { OpenAPIV2 } from 'openapi-types'
+import { TFormSchemaProperties } from 'src/localTypes/formSchema'
 import { renameBrokenFieldBackToFormAgain } from './removeAndRename'
 import { normalizeValuesForQuotasToNumber } from './normalizeQuotas'
 
@@ -7,7 +7,7 @@ export const onYamlChange = ({
   properties,
 }: {
   values: Record<string, unknown>
-  properties: OpenAPIV2.SchemaObject['properties']
+  properties: TFormSchemaProperties
 }): any => {
   const normalizedValues = renameBrokenFieldBackToFormAgain(values)
   const normalizedValuesWithQuotas = normalizeValuesForQuotasToNumber(normalizedValues, properties)

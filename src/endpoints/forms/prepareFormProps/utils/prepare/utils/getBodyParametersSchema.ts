@@ -1,5 +1,5 @@
-import _ from 'lodash'
 import { OpenAPIV2 } from 'openapi-types'
+import { TFormSchemaNode } from 'src/localTypes/formSchema'
 
 export const getBodyParametersSchema = ({
   swaggerPathValue,
@@ -8,8 +8,7 @@ export const getBodyParametersSchema = ({
   swaggerPathValue?: OpenAPIV2.PathItemObject
   swaggerPath: string
 }): {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  bodyParametersSchema: any
+  bodyParametersSchema: TFormSchemaNode | undefined
   kind?: string
   error?: string
 } => {
@@ -50,7 +49,7 @@ export const getBodyParametersSchema = ({
     return { bodyParametersSchema: undefined, kind, error }
   }
 
-  const bodyParametersSchema = bodyParameters.schema
+  const bodyParametersSchema = bodyParameters.schema as TFormSchemaNode | undefined
 
   if (!bodyParametersSchema) {
     const error = `bodyParameters with no schema:${JSON.stringify(bodyParameters, null, 2)}`

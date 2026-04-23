@@ -1,8 +1,8 @@
-import { OpenAPIV2 } from 'openapi-types'
 import { THeaders } from './common'
 import { TJSON } from '../JSON'
 import { TFormPrefill } from '../formExtensions'
 import { TFormName } from '../forms'
+import { TFormSchemaProperties } from '../formSchema'
 
 export type TPrepareFormReq = {
   body: {
@@ -38,9 +38,7 @@ export type TPrepareFormRes =
     }
   | {
       result: 'success'
-      properties: {
-        [name: string]: OpenAPIV2.SchemaObject
-      }
+      properties: TFormSchemaProperties
       required: string[] | undefined
       hiddenPaths: string[][] | undefined
       expandedPaths: string[][] | undefined
@@ -57,7 +55,7 @@ export type TYamlByValuesReq = {
   body: {
     values: any
     persistedKeys: TFormName[]
-    properties: OpenAPIV2.SchemaObject['properties']
+    properties: TFormSchemaProperties
   }
 } & THeaders
 
@@ -66,7 +64,7 @@ export type TYamlByValuesRes = any
 export type TValuesByYamlReq = {
   body: {
     values: Record<string, unknown>
-    properties: OpenAPIV2.SchemaObject['properties']
+    properties: TFormSchemaProperties
   }
 } & THeaders
 

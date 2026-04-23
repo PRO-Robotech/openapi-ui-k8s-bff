@@ -28,6 +28,7 @@ export interface TFormSchemaNode {
   enum?: string[]
   default?: unknown
   example?: unknown
+  nullable?: boolean
   description?: string
   customProps?: unknown
   isAdditionalProperties?: boolean

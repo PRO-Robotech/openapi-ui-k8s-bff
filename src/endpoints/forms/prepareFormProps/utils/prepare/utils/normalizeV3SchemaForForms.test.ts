@@ -149,6 +149,54 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('preserves nullable on leaf nodes and through singleton allOf unwrap', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        schedule: {
+          type: 'string',
+          nullable: true,
+        },
+        config: {
+          description: 'Optional configuration',
+          allOf: [
+            {
+              type: 'object',
+              nullable: true,
+              properties: {
+                raw: {
+                  type: 'string',
+                  nullable: true,
+                },
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        schedule: {
+          type: 'string',
+          nullable: true,
+        },
+        config: {
+          type: 'object',
+          description: 'Optional configuration',
+          nullable: true,
+          properties: {
+            raw: {
+              type: 'string',
+              nullable: true,
+            },
+          },
+        },
+      },
+    })
+  })
+
   it('preserves multi-entry allOf so unsupported policy can still catch it', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',

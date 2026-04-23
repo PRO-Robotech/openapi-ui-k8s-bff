@@ -13,7 +13,7 @@ export const onValuesChange = ({
   persistedKeys: TFormName[]
   properties: TFormSchemaProperties
 }): any => {
-  const cleanSchema = removeEmptyFormValues(values, persistedKeys)
+  const cleanSchema = removeEmptyFormValues(values, persistedKeys, properties)
   const fixedCleanSchema = renameBrokenFieldBack(cleanSchema)
   const quotasFixedSchema = normalizeValuesForQuotas(fixedCleanSchema, properties)
   const multilineProcessedSchema = processMultilineInFormValues(quotasFixedSchema)

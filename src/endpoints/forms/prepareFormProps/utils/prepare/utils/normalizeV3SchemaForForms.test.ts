@@ -389,6 +389,116 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('lowers oneOf branches with enum matchers and not.required into normalized branch metadata', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: {
+              type: 'object',
+              required: ['name', 'port'],
+              properties: {
+                name: {
+                  type: 'string',
+                },
+                port: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 65535,
+                },
+              },
+            },
+            url: {
+              type: 'string',
+              pattern: '^https?://',
+            },
+          },
+          oneOf: [
+            {
+              required: ['service'],
+              properties: {
+                type: {
+                  enum: ['service'],
+                },
+              },
+              not: {
+                required: ['url'],
+              },
+            } as any,
+            {
+              required: ['url'],
+              properties: {
+                type: {
+                  enum: ['url'],
+                },
+              },
+              not: {
+                required: ['service'],
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: {
+              type: 'object',
+              required: ['name', 'port'],
+              properties: {
+                name: {
+                  type: 'string',
+                },
+                port: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 65535,
+                },
+              },
+            },
+            url: {
+              type: 'string',
+              pattern: '^https?://',
+            },
+          },
+          oneOfBranches: [
+            {
+              required: ['service'],
+              match: {
+                type: 'service',
+              },
+              forbidden: ['url'],
+            },
+            {
+              required: ['url'],
+              match: {
+                type: 'url',
+              },
+              forbidden: ['service'],
+            },
+          ],
+        },
+      },
+    })
+  })
+
   it('keeps unsupported oneOf branches untouched so policy can still catch them', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',
@@ -431,6 +541,100 @@ describe('normalizeV3SchemaForForms', () => {
                 shell: {
                   minLength: 1,
                 },
+              },
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('keeps oneOf branches with unsupported not untouched so policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: { type: 'object' },
+            url: { type: 'string' },
+          },
+          oneOf: [
+            {
+              required: ['service'],
+              properties: {
+                type: {
+                  enum: ['service'],
+                },
+              },
+              not: {
+                properties: {
+                  url: {
+                    type: 'string',
+                  },
+                },
+              },
+            } as any,
+            {
+              required: ['url'],
+              properties: {
+                type: {
+                  enum: ['url'],
+                },
+              },
+              not: {
+                required: ['service'],
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: { type: 'object' },
+            url: { type: 'string' },
+          },
+          oneOf: [
+            {
+              required: ['service'],
+              properties: {
+                type: {
+                  enum: ['service'],
+                },
+              },
+              not: {
+                properties: {
+                  url: {
+                    type: 'string',
+                  },
+                },
+              },
+            },
+            {
+              required: ['url'],
+              properties: {
+                type: {
+                  enum: ['url'],
+                },
+              },
+              not: {
+                required: ['service'],
               },
             },
           ],

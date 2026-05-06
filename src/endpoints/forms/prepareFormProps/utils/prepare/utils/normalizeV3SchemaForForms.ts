@@ -1,9 +1,10 @@
 import _ from 'lodash'
-import { TFormSchemaNode, TFormSchemaProperties } from 'src/localTypes/formSchema'
+import { TFormSchemaNode, TFormSchemaOneOfBranch, TFormSchemaProperties } from 'src/localTypes/formSchema'
 
 type TV3FormSchemaNode = TFormSchemaNode & {
   allOf?: TV3FormSchemaNode[]
   oneOf?: TV3FormSchemaNode[]
+  not?: TV3FormSchemaNode
 }
 
 type TMergeOptions = {
@@ -16,6 +17,8 @@ const knownSchemaNodeKeys = new Set([
   'allOf',
   'oneOf',
   'oneOfRequiredGroups',
+  'oneOfBranches',
+  'not',
   'type',
   'properties',
   'items',
@@ -225,6 +228,7 @@ const mergeSchemaNodes = (
     required: baseRequired,
     enum: baseEnum,
     oneOfRequiredGroups: baseOneOfRequiredGroups,
+    oneOfBranches: baseOneOfBranches,
     default: baseDefault,
     example: baseExample,
     nullable: _baseNullable,
@@ -248,6 +252,7 @@ const mergeSchemaNodes = (
     required: overlayRequired,
     enum: overlayEnum,
     oneOfRequiredGroups: overlayOneOfRequiredGroups,
+    oneOfBranches: overlayOneOfBranches,
     default: overlayDefault,
     example: overlayExample,
     nullable: _overlayNullable,
@@ -283,6 +288,9 @@ const mergeSchemaNodes = (
 
   const mergedOneOfRequiredGroups = mergeStrictValue(baseOneOfRequiredGroups, overlayOneOfRequiredGroups)
   if (mergedOneOfRequiredGroups === MERGE_CONFLICT) return undefined
+
+  const mergedOneOfBranches = mergeStrictValue(baseOneOfBranches, overlayOneOfBranches)
+  if (mergedOneOfBranches === MERGE_CONFLICT) return undefined
 
   const mergedDefault = mergeAnnotationValue(baseDefault, overlayDefault, options)
   if (mergedDefault === MERGE_CONFLICT) return undefined
@@ -323,6 +331,7 @@ const mergeSchemaNodes = (
     ...(mergedRequired ? { required: mergedRequired } : {}),
     ...(mergedEnum ? { enum: mergedEnum } : {}),
     ...(mergedOneOfRequiredGroups !== undefined ? { oneOfRequiredGroups: mergedOneOfRequiredGroups } : {}),
+    ...(mergedOneOfBranches !== undefined ? { oneOfBranches: mergedOneOfBranches } : {}),
     ...(mergedDefault !== undefined ? { default: mergedDefault } : {}),
     ...(mergedExample !== undefined ? { example: mergedExample } : {}),
     ...(mergedNullable ? { nullable: mergedNullable } : {}),
@@ -418,10 +427,170 @@ const extractSupportedOneOfRequiredGroups = (node: TV3FormSchemaNode): string[][
   return groups
 }
 
+type TOneOfBranchExtractionResult =
+  | {
+      supported: true
+      branch: TFormSchemaOneOfBranch
+    }
+  | {
+      supported: false
+    }
+
+const isSupportedOneOfMatchValue = (value: unknown): value is string | number | boolean => {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+}
+
+const getUniqueStringList = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return undefined
+  }
+
+  if (value.some(item => typeof item !== 'string' || !item)) {
+    return undefined
+  }
+
+  return Array.from(new Set(value))
+}
+
+const hasDeclaredProperty = (properties: TFormSchemaProperties, key: string): boolean => {
+  return Object.prototype.hasOwnProperty.call(properties, key)
+}
+
+const extractSupportedOneOfPropertyMatch = (value: unknown): string | number | boolean | undefined => {
+  if (!isSchemaNode(value)) {
+    return undefined
+  }
+
+  const { enum: enumValues, ...rest } = value
+
+  if (Object.keys(rest).length > 0) {
+    return undefined
+  }
+
+  if (!Array.isArray(enumValues) || enumValues.length !== 1) {
+    return undefined
+  }
+
+  const [matchValue] = enumValues
+
+  return isSupportedOneOfMatchValue(matchValue) ? matchValue : undefined
+}
+
+const extractSupportedOneOfBranch = (
+  entry: unknown,
+  parentProperties: TFormSchemaProperties,
+): TOneOfBranchExtractionResult => {
+  if (!isSchemaNode(entry)) {
+    return { supported: false }
+  }
+
+  const { required, properties, not, ...rest } = entry
+
+  if (Object.keys(rest).length > 0) {
+    return { supported: false }
+  }
+
+  const requiredFields = getUniqueStringList(required)
+
+  if (!requiredFields || requiredFields.some(field => !hasDeclaredProperty(parentProperties, field))) {
+    return { supported: false }
+  }
+
+  const branch: TFormSchemaOneOfBranch = {
+    required: requiredFields,
+  }
+
+  if (properties !== undefined) {
+    const match: NonNullable<TFormSchemaOneOfBranch['match']> = {}
+
+    for (const [key, value] of Object.entries(properties)) {
+      if (!hasDeclaredProperty(parentProperties, key)) {
+        return { supported: false }
+      }
+
+      const matchValue = extractSupportedOneOfPropertyMatch(value)
+
+      if (matchValue === undefined) {
+        return { supported: false }
+      }
+
+      match[key] = matchValue
+    }
+
+    if (Object.keys(match).length > 0) {
+      branch.match = match
+    }
+  }
+
+  if (not !== undefined) {
+    if (!isSchemaNode(not)) {
+      return { supported: false }
+    }
+
+    const { required: notRequired, ...notRest } = not
+
+    if (Object.keys(notRest).length > 0) {
+      return { supported: false }
+    }
+
+    const forbiddenFields = getUniqueStringList(notRequired)
+
+    if (!forbiddenFields || forbiddenFields.some(field => !hasDeclaredProperty(parentProperties, field))) {
+      return { supported: false }
+    }
+
+    branch.forbidden = forbiddenFields
+  }
+
+  return {
+    supported: true,
+    branch,
+  }
+}
+
+const extractSupportedOneOfBranches = (node: TV3FormSchemaNode): TFormSchemaOneOfBranch[] | undefined => {
+  if (!Array.isArray(node.oneOf) || node.oneOf.length === 0) {
+    return undefined
+  }
+
+  if (node.type !== 'object' && !node.properties) {
+    return undefined
+  }
+
+  if (!node.properties || Object.keys(node.properties).length === 0) {
+    return undefined
+  }
+
+  const branches: TFormSchemaOneOfBranch[] = []
+
+  for (const entry of node.oneOf) {
+    const result = extractSupportedOneOfBranch(entry, node.properties)
+
+    if (!result.supported) {
+      return undefined
+    }
+
+    branches.push(result.branch)
+  }
+
+  return branches
+}
+
 const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
   const oneOfRequiredGroups = extractSupportedOneOfRequiredGroups(node)
 
-  if (!oneOfRequiredGroups) {
+  if (oneOfRequiredGroups) {
+    const { oneOf: _oneOf, ...nodeWithoutOneOf } = node
+
+    return {
+      ...nodeWithoutOneOf,
+      oneOfRequiredGroups,
+    }
+  }
+
+  const oneOfBranches = extractSupportedOneOfBranches(node)
+
+  if (!oneOfBranches) {
     return node
   }
 
@@ -429,7 +598,7 @@ const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
 
   return {
     ...nodeWithoutOneOf,
-    oneOfRequiredGroups,
+    oneOfBranches,
   }
 }
 

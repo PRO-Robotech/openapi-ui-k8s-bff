@@ -197,7 +197,7 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
-  it('preserves pattern, string length, and numeric range validation keywords', () => {
+  it('preserves pattern, string length, array size, and numeric range validation keywords', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',
       properties: {
@@ -211,6 +211,14 @@ describe('normalizeV3SchemaForForms', () => {
           type: 'integer',
           minimum: 1,
           maximum: 65535,
+        },
+        hosts: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 10,
+          items: {
+            type: 'string',
+          },
         },
       },
     })
@@ -228,6 +236,14 @@ describe('normalizeV3SchemaForForms', () => {
           type: 'integer',
           minimum: 1,
           maximum: 65535,
+        },
+        hosts: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 10,
+          items: {
+            type: 'string',
+          },
         },
       },
     })
@@ -261,6 +277,48 @@ describe('normalizeV3SchemaForForms', () => {
           type: 'string',
           minLength: 3,
           maxLength: 20,
+        },
+      },
+    })
+  })
+
+  it('narrows minItems and maxItems across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        hosts: {
+          allOf: [
+            {
+              type: 'array',
+              minItems: 1,
+              maxItems: 10,
+              items: {
+                type: 'string',
+              },
+            } as any,
+            {
+              type: 'array',
+              minItems: 2,
+              maxItems: 5,
+              items: {
+                type: 'string',
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        hosts: {
+          type: 'array',
+          minItems: 2,
+          maxItems: 5,
+          items: {
+            type: 'string',
+          },
         },
       },
     })
@@ -861,6 +919,56 @@ describe('normalizeV3SchemaForForms', () => {
             {
               type: 'string',
               maxLength: 5,
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('preserves impossible array size allOf constraints so unsupported policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        hosts: {
+          allOf: [
+            {
+              type: 'array',
+              minItems: 10,
+              items: {
+                type: 'string',
+              },
+            },
+            {
+              type: 'array',
+              maxItems: 5,
+              items: {
+                type: 'string',
+              },
+            },
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        hosts: {
+          allOf: [
+            {
+              type: 'array',
+              minItems: 10,
+              items: {
+                type: 'string',
+              },
+            },
+            {
+              type: 'array',
+              maxItems: 5,
+              items: {
+                type: 'string',
+              },
             },
           ],
         },

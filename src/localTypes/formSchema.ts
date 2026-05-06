@@ -42,6 +42,8 @@ export interface TFormSchemaNode {
   pattern?: string
   minLength?: number
   maxLength?: number
+  minItems?: number
+  maxItems?: number
   minimum?: number
   maximum?: number
   description?: string

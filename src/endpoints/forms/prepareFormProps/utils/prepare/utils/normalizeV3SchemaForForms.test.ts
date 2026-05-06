@@ -197,6 +197,71 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('preserves pattern and numeric range validation keywords', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          pattern: '^https?://',
+        },
+        port: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 65535,
+        },
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          pattern: '^https?://',
+        },
+        port: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 65535,
+        },
+      },
+    })
+  })
+
+  it('narrows minimum and maximum across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        port: {
+          allOf: [
+            {
+              type: 'integer',
+              minimum: 1,
+              maximum: 65535,
+            } as any,
+            {
+              type: 'integer',
+              minimum: 1024,
+              maximum: 8080,
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        port: {
+          type: 'integer',
+          minimum: 1024,
+          maximum: 8080,
+        },
+      },
+    })
+  })
+
   it('merges compatible multi-entry allOf object schemas into a regular form node', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',

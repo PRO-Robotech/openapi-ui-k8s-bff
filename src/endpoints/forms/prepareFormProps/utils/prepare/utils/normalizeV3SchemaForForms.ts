@@ -25,6 +25,9 @@ const knownSchemaNodeKeys = new Set([
   'default',
   'example',
   'nullable',
+  'pattern',
+  'minimum',
+  'maximum',
   'description',
   'customProps',
   'isAdditionalProperties',
@@ -69,6 +72,20 @@ const mergeEnum = (base?: string[], overlay?: string[]): string[] | typeof MERGE
   if (merged.length === 0) return MERGE_CONFLICT
 
   return merged
+}
+
+const mergeMinimum = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.max(base, overlay)
+}
+
+const mergeMaximum = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.min(base, overlay)
 }
 
 const mergeStrictValue = <T>(
@@ -211,6 +228,9 @@ const mergeSchemaNodes = (
     default: baseDefault,
     example: baseExample,
     nullable: _baseNullable,
+    pattern: basePattern,
+    minimum: baseMinimum,
+    maximum: baseMaximum,
     description: baseDescription,
     customProps: baseCustomProps,
     isAdditionalProperties: baseIsAdditionalProperties,
@@ -231,6 +251,9 @@ const mergeSchemaNodes = (
     default: overlayDefault,
     example: overlayExample,
     nullable: _overlayNullable,
+    pattern: overlayPattern,
+    minimum: overlayMinimum,
+    maximum: overlayMaximum,
     description: overlayDescription,
     customProps: overlayCustomProps,
     isAdditionalProperties: overlayIsAdditionalProperties,
@@ -267,6 +290,14 @@ const mergeSchemaNodes = (
   const mergedExample = mergeAnnotationValue(baseExample, overlayExample, options)
   if (mergedExample === MERGE_CONFLICT) return undefined
 
+  const mergedPattern = mergeStrictValue(basePattern, overlayPattern)
+  if (mergedPattern === MERGE_CONFLICT) return undefined
+
+  const mergedMinimum = mergeMinimum(baseMinimum, overlayMinimum)
+  const mergedMaximum = mergeMaximum(baseMaximum, overlayMaximum)
+
+  if (mergedMinimum !== undefined && mergedMaximum !== undefined && mergedMinimum > mergedMaximum) return undefined
+
   const mergedCustomProps = mergeStrictValue(baseCustomProps, overlayCustomProps)
   if (mergedCustomProps === MERGE_CONFLICT) return undefined
 
@@ -295,6 +326,9 @@ const mergeSchemaNodes = (
     ...(mergedDefault !== undefined ? { default: mergedDefault } : {}),
     ...(mergedExample !== undefined ? { example: mergedExample } : {}),
     ...(mergedNullable ? { nullable: mergedNullable } : {}),
+    ...(mergedPattern !== undefined ? { pattern: mergedPattern } : {}),
+    ...(mergedMinimum !== undefined ? { minimum: mergedMinimum } : {}),
+    ...(mergedMaximum !== undefined ? { maximum: mergedMaximum } : {}),
     ...(overlayDescription || baseDescription ? { description: overlayDescription ?? baseDescription } : {}),
     ...(mergedCustomProps !== undefined ? { customProps: mergedCustomProps } : {}),
     ...(mergedIsAdditionalProperties !== undefined ? { isAdditionalProperties: mergedIsAdditionalProperties } : {}),

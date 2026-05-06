@@ -197,18 +197,20 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
-  it('preserves pattern, string length, array size, and numeric range validation keywords', () => {
+  it('preserves format, pattern, string length, array size, and numeric range validation keywords', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',
       properties: {
         url: {
           type: 'string',
+          format: 'uri',
           pattern: '^https?://',
           minLength: 8,
           maxLength: 2048,
         },
         port: {
           type: 'integer',
+          format: 'int32',
           minimum: 1,
           maximum: 65535,
         },
@@ -228,12 +230,14 @@ describe('normalizeV3SchemaForForms', () => {
       properties: {
         url: {
           type: 'string',
+          format: 'uri',
           pattern: '^https?://',
           minLength: 8,
           maxLength: 2048,
         },
         port: {
           type: 'integer',
+          format: 'int32',
           minimum: 1,
           maximum: 65535,
         },
@@ -244,6 +248,38 @@ describe('normalizeV3SchemaForForms', () => {
           items: {
             type: 'string',
           },
+        },
+      },
+    })
+  })
+
+  it('preserves matching format across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        createdAt: {
+          allOf: [
+            {
+              type: 'string',
+              format: 'date-time',
+            } as any,
+            {
+              type: 'string',
+              format: 'date-time',
+              minLength: 20,
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        createdAt: {
+          type: 'string',
+          format: 'date-time',
+          minLength: 20,
         },
       },
     })
@@ -828,7 +864,7 @@ describe('normalizeV3SchemaForForms', () => {
       properties: {
         spec: {
           type: 'string',
-          format: 'date-time',
+          contentEncoding: 'base64',
         } as any,
       },
     })
@@ -836,7 +872,7 @@ describe('normalizeV3SchemaForForms', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       '[openapi-v3-normalize]: unknown schema keyword(s) encountered during form normalization',
       {
-        unknownKeys: ['format'],
+        unknownKeys: ['contentEncoding'],
       },
     )
 
@@ -881,6 +917,44 @@ describe('normalizeV3SchemaForForms', () => {
             },
             {
               type: 'string',
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('preserves conflicting format allOf constraints so unsupported policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        timestamp: {
+          allOf: [
+            {
+              type: 'string',
+              format: 'date',
+            },
+            {
+              type: 'string',
+              format: 'date-time',
+            },
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        timestamp: {
+          allOf: [
+            {
+              type: 'string',
+              format: 'date',
+            },
+            {
+              type: 'string',
+              format: 'date-time',
             },
           ],
         },

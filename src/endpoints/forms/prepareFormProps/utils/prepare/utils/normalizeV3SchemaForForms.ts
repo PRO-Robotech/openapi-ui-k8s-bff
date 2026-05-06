@@ -28,6 +28,7 @@ const knownSchemaNodeKeys = new Set([
   'default',
   'example',
   'nullable',
+  'format',
   'pattern',
   'minLength',
   'maxLength',
@@ -264,6 +265,7 @@ const mergeSchemaNodes = (
     default: baseDefault,
     example: baseExample,
     nullable: _baseNullable,
+    format: baseFormat,
     pattern: basePattern,
     minLength: baseMinLength,
     maxLength: baseMaxLength,
@@ -292,6 +294,7 @@ const mergeSchemaNodes = (
     default: overlayDefault,
     example: overlayExample,
     nullable: _overlayNullable,
+    format: overlayFormat,
     pattern: overlayPattern,
     minLength: overlayMinLength,
     maxLength: overlayMaxLength,
@@ -341,6 +344,9 @@ const mergeSchemaNodes = (
   const mergedPattern = mergeStrictValue(basePattern, overlayPattern)
   if (mergedPattern === MERGE_CONFLICT) return undefined
 
+  const mergedFormat = mergeStrictValue(baseFormat, overlayFormat)
+  if (mergedFormat === MERGE_CONFLICT) return undefined
+
   const mergedMinLength = mergeMinLength(baseMinLength, overlayMinLength)
   const mergedMaxLength = mergeMaxLength(baseMaxLength, overlayMaxLength)
 
@@ -385,6 +391,7 @@ const mergeSchemaNodes = (
     ...(mergedDefault !== undefined ? { default: mergedDefault } : {}),
     ...(mergedExample !== undefined ? { example: mergedExample } : {}),
     ...(mergedNullable ? { nullable: mergedNullable } : {}),
+    ...(mergedFormat !== undefined ? { format: mergedFormat } : {}),
     ...(mergedPattern !== undefined ? { pattern: mergedPattern } : {}),
     ...(mergedMinLength !== undefined ? { minLength: mergedMinLength } : {}),
     ...(mergedMaxLength !== undefined ? { maxLength: mergedMaxLength } : {}),

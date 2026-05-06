@@ -197,13 +197,15 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
-  it('preserves pattern and numeric range validation keywords', () => {
+  it('preserves pattern, string length, and numeric range validation keywords', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',
       properties: {
         url: {
           type: 'string',
           pattern: '^https?://',
+          minLength: 8,
+          maxLength: 2048,
         },
         port: {
           type: 'integer',
@@ -219,11 +221,46 @@ describe('normalizeV3SchemaForForms', () => {
         url: {
           type: 'string',
           pattern: '^https?://',
+          minLength: 8,
+          maxLength: 2048,
         },
         port: {
           type: 'integer',
           minimum: 1,
           maximum: 65535,
+        },
+      },
+    })
+  })
+
+  it('narrows minLength and maxLength across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        name: {
+          allOf: [
+            {
+              type: 'string',
+              minLength: 1,
+              maxLength: 63,
+            } as any,
+            {
+              type: 'string',
+              minLength: 3,
+              maxLength: 20,
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          minLength: 3,
+          maxLength: 20,
         },
       },
     })
@@ -786,6 +823,44 @@ describe('normalizeV3SchemaForForms', () => {
             },
             {
               type: 'string',
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('preserves impossible string length allOf constraints so unsupported policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        name: {
+          allOf: [
+            {
+              type: 'string',
+              minLength: 10,
+            },
+            {
+              type: 'string',
+              maxLength: 5,
+            },
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        name: {
+          allOf: [
+            {
+              type: 'string',
+              minLength: 10,
+            },
+            {
+              type: 'string',
+              maxLength: 5,
             },
           ],
         },

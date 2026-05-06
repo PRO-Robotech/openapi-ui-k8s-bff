@@ -29,6 +29,8 @@ const knownSchemaNodeKeys = new Set([
   'example',
   'nullable',
   'pattern',
+  'minLength',
+  'maxLength',
   'minimum',
   'maximum',
   'description',
@@ -85,6 +87,20 @@ const mergeMinimum = (base?: number, overlay?: number): number | undefined => {
 }
 
 const mergeMaximum = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.min(base, overlay)
+}
+
+const mergeMinLength = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.max(base, overlay)
+}
+
+const mergeMaxLength = (base?: number, overlay?: number): number | undefined => {
   if (base === undefined) return overlay
   if (overlay === undefined) return base
 
@@ -233,6 +249,8 @@ const mergeSchemaNodes = (
     example: baseExample,
     nullable: _baseNullable,
     pattern: basePattern,
+    minLength: baseMinLength,
+    maxLength: baseMaxLength,
     minimum: baseMinimum,
     maximum: baseMaximum,
     description: baseDescription,
@@ -257,6 +275,8 @@ const mergeSchemaNodes = (
     example: overlayExample,
     nullable: _overlayNullable,
     pattern: overlayPattern,
+    minLength: overlayMinLength,
+    maxLength: overlayMaxLength,
     minimum: overlayMinimum,
     maximum: overlayMaximum,
     description: overlayDescription,
@@ -301,6 +321,11 @@ const mergeSchemaNodes = (
   const mergedPattern = mergeStrictValue(basePattern, overlayPattern)
   if (mergedPattern === MERGE_CONFLICT) return undefined
 
+  const mergedMinLength = mergeMinLength(baseMinLength, overlayMinLength)
+  const mergedMaxLength = mergeMaxLength(baseMaxLength, overlayMaxLength)
+
+  if (mergedMinLength !== undefined && mergedMaxLength !== undefined && mergedMinLength > mergedMaxLength) return undefined
+
   const mergedMinimum = mergeMinimum(baseMinimum, overlayMinimum)
   const mergedMaximum = mergeMaximum(baseMaximum, overlayMaximum)
 
@@ -336,6 +361,8 @@ const mergeSchemaNodes = (
     ...(mergedExample !== undefined ? { example: mergedExample } : {}),
     ...(mergedNullable ? { nullable: mergedNullable } : {}),
     ...(mergedPattern !== undefined ? { pattern: mergedPattern } : {}),
+    ...(mergedMinLength !== undefined ? { minLength: mergedMinLength } : {}),
+    ...(mergedMaxLength !== undefined ? { maxLength: mergedMaxLength } : {}),
     ...(mergedMinimum !== undefined ? { minimum: mergedMinimum } : {}),
     ...(mergedMaximum !== undefined ? { maximum: mergedMaximum } : {}),
     ...(overlayDescription || baseDescription ? { description: overlayDescription ?? baseDescription } : {}),

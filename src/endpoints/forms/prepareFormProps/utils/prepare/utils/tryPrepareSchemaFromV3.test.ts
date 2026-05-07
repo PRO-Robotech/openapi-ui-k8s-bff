@@ -278,6 +278,246 @@ describe('tryPrepareSchemaFromV3', () => {
     })
   })
 
+  it('returns success when oneOf branches are lowered into supported branch metadata', async () => {
+    mockedGetOpenApiV3Index.mockResolvedValue({
+      paths: {
+        'apis/demo.example.io/v1': {
+          serverRelativeURL: '/openapi/v3/apis/demo.example.io/v1?hash=abc',
+        },
+      },
+    })
+    mockedGetOpenApiV3ServerRelativeUrlFromIndex.mockReturnValue('/openapi/v3/apis/demo.example.io/v1?hash=abc')
+    mockedGetOpenApiV3Document.mockResolvedValue({
+      openapi: '3.0.0',
+      info: { title: 'demo', version: 'v1' },
+      paths: {
+        '/apis/demo.example.io/v1/widgets': {
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      kind: {
+                        type: 'string',
+                        enum: ['Widget'],
+                      },
+                      spec: {
+                        type: 'object',
+                        required: ['type'],
+                        properties: {
+                          type: {
+                            type: 'string',
+                            enum: ['service', 'url'],
+                          },
+                          service: {
+                            type: 'object',
+                            required: ['name', 'port'],
+                            properties: {
+                              name: {
+                                type: 'string',
+                              },
+                              port: {
+                                type: 'integer',
+                                minimum: 1,
+                                maximum: 65535,
+                              },
+                            },
+                          },
+                          url: {
+                            type: 'string',
+                            pattern: '^https?://',
+                          },
+                        },
+                        oneOf: [
+                          {
+                            required: ['service'],
+                            properties: {
+                              type: {
+                                enum: ['service'],
+                              },
+                            },
+                            not: {
+                              required: ['url'],
+                            },
+                          },
+                          {
+                            required: ['url'],
+                            properties: {
+                              type: {
+                                enum: ['url'],
+                              },
+                            },
+                            not: {
+                              required: ['service'],
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    } as any)
+
+    const result = await tryPrepareSchemaFromV3({ data })
+
+    expect(result).toEqual({
+      source: 'v3',
+      status: 'success',
+      bodyParametersSchema: {
+        type: 'object',
+        properties: {
+          kind: {
+            type: 'string',
+            enum: ['Widget'],
+          },
+          spec: {
+            type: 'object',
+            required: ['type'],
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['service', 'url'],
+              },
+              service: {
+                type: 'object',
+                required: ['name', 'port'],
+                properties: {
+                  name: {
+                    type: 'string',
+                  },
+                  port: {
+                    type: 'integer',
+                    minimum: 1,
+                    maximum: 65535,
+                  },
+                },
+              },
+              url: {
+                type: 'string',
+                pattern: '^https?://',
+              },
+            },
+            oneOfBranches: [
+              {
+                required: ['service'],
+                match: {
+                  type: 'service',
+                },
+                forbidden: ['url'],
+              },
+              {
+                required: ['url'],
+                match: {
+                  type: 'url',
+                },
+                forbidden: ['service'],
+              },
+            ],
+          },
+        },
+      },
+      isNamespaced: false,
+      kind: 'Widget',
+    })
+  })
+
+  it('returns unsupported when oneOf contains unsupported not constraints', async () => {
+    mockedGetOpenApiV3Index.mockResolvedValue({
+      paths: {
+        'apis/demo.example.io/v1': {
+          serverRelativeURL: '/openapi/v3/apis/demo.example.io/v1?hash=abc',
+        },
+      },
+    })
+    mockedGetOpenApiV3ServerRelativeUrlFromIndex.mockReturnValue('/openapi/v3/apis/demo.example.io/v1?hash=abc')
+    mockedGetOpenApiV3Document.mockResolvedValue({
+      openapi: '3.0.0',
+      info: { title: 'demo', version: 'v1' },
+      paths: {
+        '/apis/demo.example.io/v1/widgets': {
+          post: {
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      kind: {
+                        type: 'string',
+                        enum: ['Widget'],
+                      },
+                      spec: {
+                        type: 'object',
+                        properties: {
+                          type: {
+                            type: 'string',
+                            enum: ['service', 'url'],
+                          },
+                          service: {
+                            type: 'object',
+                          },
+                          url: {
+                            type: 'string',
+                          },
+                        },
+                        oneOf: [
+                          {
+                            required: ['service'],
+                            properties: {
+                              type: {
+                                enum: ['service'],
+                              },
+                            },
+                            not: {
+                              properties: {
+                                url: {
+                                  type: 'string',
+                                },
+                              },
+                            },
+                          },
+                          {
+                            required: ['url'],
+                            properties: {
+                              type: {
+                                enum: ['url'],
+                              },
+                            },
+                            not: {
+                              required: ['service'],
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    } as any)
+
+    const result = await tryPrepareSchemaFromV3({ data })
+
+    expect(result).toEqual({
+      source: 'v3',
+      status: 'unsupported',
+      error: 'Unsupported OpenAPI v3 schema for auto-generated form: /apis/demo.example.io/v1/widgets',
+      issues: [{ keyword: 'oneOf', path: ['spec'] }],
+      isNamespaced: false,
+      kind: 'Widget',
+    })
+  })
+
   it('normalizes singleton metadata allOf wrappers before support check', async () => {
     mockedGetOpenApiV3Index.mockResolvedValue({
       paths: {

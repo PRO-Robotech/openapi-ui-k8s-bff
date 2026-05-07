@@ -197,6 +197,202 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('preserves format, pattern, string length, array size, and numeric range validation keywords', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          format: 'uri',
+          pattern: '^https?://',
+          minLength: 8,
+          maxLength: 2048,
+        },
+        port: {
+          type: 'integer',
+          format: 'int32',
+          minimum: 1,
+          maximum: 65535,
+        },
+        hosts: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 10,
+          items: {
+            type: 'string',
+          },
+        },
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          format: 'uri',
+          pattern: '^https?://',
+          minLength: 8,
+          maxLength: 2048,
+        },
+        port: {
+          type: 'integer',
+          format: 'int32',
+          minimum: 1,
+          maximum: 65535,
+        },
+        hosts: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 10,
+          items: {
+            type: 'string',
+          },
+        },
+      },
+    })
+  })
+
+  it('preserves matching format across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        createdAt: {
+          allOf: [
+            {
+              type: 'string',
+              format: 'date-time',
+            } as any,
+            {
+              type: 'string',
+              format: 'date-time',
+              minLength: 20,
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        createdAt: {
+          type: 'string',
+          format: 'date-time',
+          minLength: 20,
+        },
+      },
+    })
+  })
+
+  it('narrows minLength and maxLength across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        name: {
+          allOf: [
+            {
+              type: 'string',
+              minLength: 1,
+              maxLength: 63,
+            } as any,
+            {
+              type: 'string',
+              minLength: 3,
+              maxLength: 20,
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          minLength: 3,
+          maxLength: 20,
+        },
+      },
+    })
+  })
+
+  it('narrows minItems and maxItems across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        hosts: {
+          allOf: [
+            {
+              type: 'array',
+              minItems: 1,
+              maxItems: 10,
+              items: {
+                type: 'string',
+              },
+            } as any,
+            {
+              type: 'array',
+              minItems: 2,
+              maxItems: 5,
+              items: {
+                type: 'string',
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        hosts: {
+          type: 'array',
+          minItems: 2,
+          maxItems: 5,
+          items: {
+            type: 'string',
+          },
+        },
+      },
+    })
+  })
+
+  it('narrows minimum and maximum across compatible allOf branches', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        port: {
+          allOf: [
+            {
+              type: 'integer',
+              minimum: 1,
+              maximum: 65535,
+            } as any,
+            {
+              type: 'integer',
+              minimum: 1024,
+              maximum: 8080,
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        port: {
+          type: 'integer',
+          minimum: 1024,
+          maximum: 8080,
+        },
+      },
+    })
+  })
+
   it('merges compatible multi-entry allOf object schemas into a regular form node', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',
@@ -324,6 +520,116 @@ describe('normalizeV3SchemaForForms', () => {
     })
   })
 
+  it('lowers oneOf branches with enum matchers and not.required into normalized branch metadata', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: {
+              type: 'object',
+              required: ['name', 'port'],
+              properties: {
+                name: {
+                  type: 'string',
+                },
+                port: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 65535,
+                },
+              },
+            },
+            url: {
+              type: 'string',
+              pattern: '^https?://',
+            },
+          },
+          oneOf: [
+            {
+              required: ['service'],
+              properties: {
+                type: {
+                  enum: ['service'],
+                },
+              },
+              not: {
+                required: ['url'],
+              },
+            } as any,
+            {
+              required: ['url'],
+              properties: {
+                type: {
+                  enum: ['url'],
+                },
+              },
+              not: {
+                required: ['service'],
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: {
+              type: 'object',
+              required: ['name', 'port'],
+              properties: {
+                name: {
+                  type: 'string',
+                },
+                port: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 65535,
+                },
+              },
+            },
+            url: {
+              type: 'string',
+              pattern: '^https?://',
+            },
+          },
+          oneOfBranches: [
+            {
+              required: ['service'],
+              match: {
+                type: 'service',
+              },
+              forbidden: ['url'],
+            },
+            {
+              required: ['url'],
+              match: {
+                type: 'url',
+              },
+              forbidden: ['service'],
+            },
+          ],
+        },
+      },
+    })
+  })
+
   it('keeps unsupported oneOf branches untouched so policy can still catch them', () => {
     const result = normalizeV3SchemaForForms({
       type: 'object',
@@ -366,6 +672,100 @@ describe('normalizeV3SchemaForForms', () => {
                 shell: {
                   minLength: 1,
                 },
+              },
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('keeps oneOf branches with unsupported not untouched so policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: { type: 'object' },
+            url: { type: 'string' },
+          },
+          oneOf: [
+            {
+              required: ['service'],
+              properties: {
+                type: {
+                  enum: ['service'],
+                },
+              },
+              not: {
+                properties: {
+                  url: {
+                    type: 'string',
+                  },
+                },
+              },
+            } as any,
+            {
+              required: ['url'],
+              properties: {
+                type: {
+                  enum: ['url'],
+                },
+              },
+              not: {
+                required: ['service'],
+              },
+            } as any,
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              enum: ['service', 'url'],
+            },
+            service: { type: 'object' },
+            url: { type: 'string' },
+          },
+          oneOf: [
+            {
+              required: ['service'],
+              properties: {
+                type: {
+                  enum: ['service'],
+                },
+              },
+              not: {
+                properties: {
+                  url: {
+                    type: 'string',
+                  },
+                },
+              },
+            },
+            {
+              required: ['url'],
+              properties: {
+                type: {
+                  enum: ['url'],
+                },
+              },
+              not: {
+                required: ['service'],
               },
             },
           ],
@@ -464,7 +864,7 @@ describe('normalizeV3SchemaForForms', () => {
       properties: {
         spec: {
           type: 'string',
-          format: 'date-time',
+          contentEncoding: 'base64',
         } as any,
       },
     })
@@ -472,7 +872,7 @@ describe('normalizeV3SchemaForForms', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       '[openapi-v3-normalize]: unknown schema keyword(s) encountered during form normalization',
       {
-        unknownKeys: ['format'],
+        unknownKeys: ['contentEncoding'],
       },
     )
 
@@ -517,6 +917,132 @@ describe('normalizeV3SchemaForForms', () => {
             },
             {
               type: 'string',
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('preserves conflicting format allOf constraints so unsupported policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        timestamp: {
+          allOf: [
+            {
+              type: 'string',
+              format: 'date',
+            },
+            {
+              type: 'string',
+              format: 'date-time',
+            },
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        timestamp: {
+          allOf: [
+            {
+              type: 'string',
+              format: 'date',
+            },
+            {
+              type: 'string',
+              format: 'date-time',
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('preserves impossible string length allOf constraints so unsupported policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        name: {
+          allOf: [
+            {
+              type: 'string',
+              minLength: 10,
+            },
+            {
+              type: 'string',
+              maxLength: 5,
+            },
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        name: {
+          allOf: [
+            {
+              type: 'string',
+              minLength: 10,
+            },
+            {
+              type: 'string',
+              maxLength: 5,
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  it('preserves impossible array size allOf constraints so unsupported policy can still catch them', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        hosts: {
+          allOf: [
+            {
+              type: 'array',
+              minItems: 10,
+              items: {
+                type: 'string',
+              },
+            },
+            {
+              type: 'array',
+              maxItems: 5,
+              items: {
+                type: 'string',
+              },
+            },
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        hosts: {
+          allOf: [
+            {
+              type: 'array',
+              minItems: 10,
+              items: {
+                type: 'string',
+              },
+            },
+            {
+              type: 'array',
+              maxItems: 5,
+              items: {
+                type: 'string',
+              },
             },
           ],
         },

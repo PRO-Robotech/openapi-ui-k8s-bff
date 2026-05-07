@@ -1,9 +1,10 @@
 import _ from 'lodash'
-import { TFormSchemaNode, TFormSchemaProperties } from 'src/localTypes/formSchema'
+import { TFormSchemaNode, TFormSchemaOneOfBranch, TFormSchemaProperties } from 'src/localTypes/formSchema'
 
 type TV3FormSchemaNode = TFormSchemaNode & {
   allOf?: TV3FormSchemaNode[]
   oneOf?: TV3FormSchemaNode[]
+  not?: TV3FormSchemaNode
 }
 
 type TMergeOptions = {
@@ -16,6 +17,8 @@ const knownSchemaNodeKeys = new Set([
   'allOf',
   'oneOf',
   'oneOfRequiredGroups',
+  'oneOfBranches',
+  'not',
   'type',
   'properties',
   'items',
@@ -25,6 +28,14 @@ const knownSchemaNodeKeys = new Set([
   'default',
   'example',
   'nullable',
+  'format',
+  'pattern',
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'minimum',
+  'maximum',
   'description',
   'customProps',
   'isAdditionalProperties',
@@ -69,6 +80,48 @@ const mergeEnum = (base?: string[], overlay?: string[]): string[] | typeof MERGE
   if (merged.length === 0) return MERGE_CONFLICT
 
   return merged
+}
+
+const mergeMinimum = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.max(base, overlay)
+}
+
+const mergeMaximum = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.min(base, overlay)
+}
+
+const mergeMinLength = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.max(base, overlay)
+}
+
+const mergeMaxLength = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.min(base, overlay)
+}
+
+const mergeMinItems = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.max(base, overlay)
+}
+
+const mergeMaxItems = (base?: number, overlay?: number): number | undefined => {
+  if (base === undefined) return overlay
+  if (overlay === undefined) return base
+
+  return Math.min(base, overlay)
 }
 
 const mergeStrictValue = <T>(
@@ -208,9 +261,18 @@ const mergeSchemaNodes = (
     required: baseRequired,
     enum: baseEnum,
     oneOfRequiredGroups: baseOneOfRequiredGroups,
+    oneOfBranches: baseOneOfBranches,
     default: baseDefault,
     example: baseExample,
     nullable: _baseNullable,
+    format: baseFormat,
+    pattern: basePattern,
+    minLength: baseMinLength,
+    maxLength: baseMaxLength,
+    minItems: baseMinItems,
+    maxItems: baseMaxItems,
+    minimum: baseMinimum,
+    maximum: baseMaximum,
     description: baseDescription,
     customProps: baseCustomProps,
     isAdditionalProperties: baseIsAdditionalProperties,
@@ -228,9 +290,18 @@ const mergeSchemaNodes = (
     required: overlayRequired,
     enum: overlayEnum,
     oneOfRequiredGroups: overlayOneOfRequiredGroups,
+    oneOfBranches: overlayOneOfBranches,
     default: overlayDefault,
     example: overlayExample,
     nullable: _overlayNullable,
+    format: overlayFormat,
+    pattern: overlayPattern,
+    minLength: overlayMinLength,
+    maxLength: overlayMaxLength,
+    minItems: overlayMinItems,
+    maxItems: overlayMaxItems,
+    minimum: overlayMinimum,
+    maximum: overlayMaximum,
     description: overlayDescription,
     customProps: overlayCustomProps,
     isAdditionalProperties: overlayIsAdditionalProperties,
@@ -261,11 +332,35 @@ const mergeSchemaNodes = (
   const mergedOneOfRequiredGroups = mergeStrictValue(baseOneOfRequiredGroups, overlayOneOfRequiredGroups)
   if (mergedOneOfRequiredGroups === MERGE_CONFLICT) return undefined
 
+  const mergedOneOfBranches = mergeStrictValue(baseOneOfBranches, overlayOneOfBranches)
+  if (mergedOneOfBranches === MERGE_CONFLICT) return undefined
+
   const mergedDefault = mergeAnnotationValue(baseDefault, overlayDefault, options)
   if (mergedDefault === MERGE_CONFLICT) return undefined
 
   const mergedExample = mergeAnnotationValue(baseExample, overlayExample, options)
   if (mergedExample === MERGE_CONFLICT) return undefined
+
+  const mergedPattern = mergeStrictValue(basePattern, overlayPattern)
+  if (mergedPattern === MERGE_CONFLICT) return undefined
+
+  const mergedFormat = mergeStrictValue(baseFormat, overlayFormat)
+  if (mergedFormat === MERGE_CONFLICT) return undefined
+
+  const mergedMinLength = mergeMinLength(baseMinLength, overlayMinLength)
+  const mergedMaxLength = mergeMaxLength(baseMaxLength, overlayMaxLength)
+
+  if (mergedMinLength !== undefined && mergedMaxLength !== undefined && mergedMinLength > mergedMaxLength) return undefined
+
+  const mergedMinItems = mergeMinItems(baseMinItems, overlayMinItems)
+  const mergedMaxItems = mergeMaxItems(baseMaxItems, overlayMaxItems)
+
+  if (mergedMinItems !== undefined && mergedMaxItems !== undefined && mergedMinItems > mergedMaxItems) return undefined
+
+  const mergedMinimum = mergeMinimum(baseMinimum, overlayMinimum)
+  const mergedMaximum = mergeMaximum(baseMaximum, overlayMaximum)
+
+  if (mergedMinimum !== undefined && mergedMaximum !== undefined && mergedMinimum > mergedMaximum) return undefined
 
   const mergedCustomProps = mergeStrictValue(baseCustomProps, overlayCustomProps)
   if (mergedCustomProps === MERGE_CONFLICT) return undefined
@@ -292,9 +387,18 @@ const mergeSchemaNodes = (
     ...(mergedRequired ? { required: mergedRequired } : {}),
     ...(mergedEnum ? { enum: mergedEnum } : {}),
     ...(mergedOneOfRequiredGroups !== undefined ? { oneOfRequiredGroups: mergedOneOfRequiredGroups } : {}),
+    ...(mergedOneOfBranches !== undefined ? { oneOfBranches: mergedOneOfBranches } : {}),
     ...(mergedDefault !== undefined ? { default: mergedDefault } : {}),
     ...(mergedExample !== undefined ? { example: mergedExample } : {}),
     ...(mergedNullable ? { nullable: mergedNullable } : {}),
+    ...(mergedFormat !== undefined ? { format: mergedFormat } : {}),
+    ...(mergedPattern !== undefined ? { pattern: mergedPattern } : {}),
+    ...(mergedMinLength !== undefined ? { minLength: mergedMinLength } : {}),
+    ...(mergedMaxLength !== undefined ? { maxLength: mergedMaxLength } : {}),
+    ...(mergedMinItems !== undefined ? { minItems: mergedMinItems } : {}),
+    ...(mergedMaxItems !== undefined ? { maxItems: mergedMaxItems } : {}),
+    ...(mergedMinimum !== undefined ? { minimum: mergedMinimum } : {}),
+    ...(mergedMaximum !== undefined ? { maximum: mergedMaximum } : {}),
     ...(overlayDescription || baseDescription ? { description: overlayDescription ?? baseDescription } : {}),
     ...(mergedCustomProps !== undefined ? { customProps: mergedCustomProps } : {}),
     ...(mergedIsAdditionalProperties !== undefined ? { isAdditionalProperties: mergedIsAdditionalProperties } : {}),
@@ -384,10 +488,170 @@ const extractSupportedOneOfRequiredGroups = (node: TV3FormSchemaNode): string[][
   return groups
 }
 
+type TOneOfBranchExtractionResult =
+  | {
+      supported: true
+      branch: TFormSchemaOneOfBranch
+    }
+  | {
+      supported: false
+    }
+
+const isSupportedOneOfMatchValue = (value: unknown): value is string | number | boolean => {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+}
+
+const getUniqueStringList = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return undefined
+  }
+
+  if (value.some(item => typeof item !== 'string' || !item)) {
+    return undefined
+  }
+
+  return Array.from(new Set(value))
+}
+
+const hasDeclaredProperty = (properties: TFormSchemaProperties, key: string): boolean => {
+  return Object.prototype.hasOwnProperty.call(properties, key)
+}
+
+const extractSupportedOneOfPropertyMatch = (value: unknown): string | number | boolean | undefined => {
+  if (!isSchemaNode(value)) {
+    return undefined
+  }
+
+  const { enum: enumValues, ...rest } = value
+
+  if (Object.keys(rest).length > 0) {
+    return undefined
+  }
+
+  if (!Array.isArray(enumValues) || enumValues.length !== 1) {
+    return undefined
+  }
+
+  const [matchValue] = enumValues
+
+  return isSupportedOneOfMatchValue(matchValue) ? matchValue : undefined
+}
+
+const extractSupportedOneOfBranch = (
+  entry: unknown,
+  parentProperties: TFormSchemaProperties,
+): TOneOfBranchExtractionResult => {
+  if (!isSchemaNode(entry)) {
+    return { supported: false }
+  }
+
+  const { required, properties, not, ...rest } = entry
+
+  if (Object.keys(rest).length > 0) {
+    return { supported: false }
+  }
+
+  const requiredFields = getUniqueStringList(required)
+
+  if (!requiredFields || requiredFields.some(field => !hasDeclaredProperty(parentProperties, field))) {
+    return { supported: false }
+  }
+
+  const branch: TFormSchemaOneOfBranch = {
+    required: requiredFields,
+  }
+
+  if (properties !== undefined) {
+    const match: NonNullable<TFormSchemaOneOfBranch['match']> = {}
+
+    for (const [key, value] of Object.entries(properties)) {
+      if (!hasDeclaredProperty(parentProperties, key)) {
+        return { supported: false }
+      }
+
+      const matchValue = extractSupportedOneOfPropertyMatch(value)
+
+      if (matchValue === undefined) {
+        return { supported: false }
+      }
+
+      match[key] = matchValue
+    }
+
+    if (Object.keys(match).length > 0) {
+      branch.match = match
+    }
+  }
+
+  if (not !== undefined) {
+    if (!isSchemaNode(not)) {
+      return { supported: false }
+    }
+
+    const { required: notRequired, ...notRest } = not
+
+    if (Object.keys(notRest).length > 0) {
+      return { supported: false }
+    }
+
+    const forbiddenFields = getUniqueStringList(notRequired)
+
+    if (!forbiddenFields || forbiddenFields.some(field => !hasDeclaredProperty(parentProperties, field))) {
+      return { supported: false }
+    }
+
+    branch.forbidden = forbiddenFields
+  }
+
+  return {
+    supported: true,
+    branch,
+  }
+}
+
+const extractSupportedOneOfBranches = (node: TV3FormSchemaNode): TFormSchemaOneOfBranch[] | undefined => {
+  if (!Array.isArray(node.oneOf) || node.oneOf.length === 0) {
+    return undefined
+  }
+
+  if (node.type !== 'object' && !node.properties) {
+    return undefined
+  }
+
+  if (!node.properties || Object.keys(node.properties).length === 0) {
+    return undefined
+  }
+
+  const branches: TFormSchemaOneOfBranch[] = []
+
+  for (const entry of node.oneOf) {
+    const result = extractSupportedOneOfBranch(entry, node.properties)
+
+    if (!result.supported) {
+      return undefined
+    }
+
+    branches.push(result.branch)
+  }
+
+  return branches
+}
+
 const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
   const oneOfRequiredGroups = extractSupportedOneOfRequiredGroups(node)
 
-  if (!oneOfRequiredGroups) {
+  if (oneOfRequiredGroups) {
+    const { oneOf: _oneOf, ...nodeWithoutOneOf } = node
+
+    return {
+      ...nodeWithoutOneOf,
+      oneOfRequiredGroups,
+    }
+  }
+
+  const oneOfBranches = extractSupportedOneOfBranches(node)
+
+  if (!oneOfBranches) {
     return node
   }
 
@@ -395,7 +659,7 @@ const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
 
   return {
     ...nodeWithoutOneOf,
-    oneOfRequiredGroups,
+    oneOfBranches,
   }
 }
 

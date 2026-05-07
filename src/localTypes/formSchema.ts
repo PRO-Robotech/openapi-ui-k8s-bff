@@ -14,6 +14,14 @@ export type TFormSchemaKnownType =
 
 type TFormSchemaLooseType = TFormSchemaKnownType | (string & {})
 
+export type TFormSchemaOneOfMatchValue = string | number | boolean
+
+export interface TFormSchemaOneOfBranch {
+  match?: Record<string, TFormSchemaOneOfMatchValue>
+  required?: string[]
+  forbidden?: string[]
+}
+
 /**
  * Normalized form-schema node produced by the BFF and consumed by the form UI.
  * It intentionally models only the subset of schema keywords the form stack
@@ -27,9 +35,18 @@ export interface TFormSchemaNode {
   required?: string[]
   enum?: string[]
   oneOfRequiredGroups?: string[][]
+  oneOfBranches?: TFormSchemaOneOfBranch[]
   default?: unknown
   example?: unknown
   nullable?: boolean
+  format?: string
+  pattern?: string
+  minLength?: number
+  maxLength?: number
+  minItems?: number
+  maxItems?: number
+  minimum?: number
+  maximum?: number
   description?: string
   customProps?: unknown
   isAdditionalProperties?: boolean

@@ -637,6 +637,39 @@ const extractSupportedOneOfBranches = (node: TV3FormSchemaNode): TFormSchemaOneO
   return branches
 }
 
+const SCALAR_UNION_TYPES = new Set(['string', 'integer', 'number', 'boolean'])
+
+const isScalarUnionEntry = (value: unknown): boolean => {
+  if (!isSchemaNode(value)) return false
+
+  const keys = Object.keys(value)
+
+  if (keys.length !== 1 || keys[0] !== 'type') return false
+
+  return typeof value.type === 'string' && SCALAR_UNION_TYPES.has(value.type)
+}
+
+/**
+ * Kubernetes encodes `IntOrString` (ports) and `resource.Quantity` (cpu/memory)
+ * as `oneOf: [{ type: 'string' }, { type: 'integer' | 'number' }]` on a leaf
+ * node without `properties`. The v2 spec flattened these to plain strings;
+ * to keep parity in v3 we recognise the exact scalar-union shape and lower it
+ * to `type: 'string'`. We deliberately do NOT touch oneOf shapes that carry
+ * any other keys inside entries — those belong to dataset-style unions handled
+ * above, or remain for the unsupported-keyword guard to surface.
+ */
+const isScalarUnionOneOf = (node: TV3FormSchemaNode): boolean => {
+  if (!Array.isArray(node.oneOf) || node.oneOf.length === 0) {
+    return false
+  }
+
+  if (node.properties && Object.keys(node.properties).length > 0) {
+    return false
+  }
+
+  return node.oneOf.every(isScalarUnionEntry)
+}
+
 const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
   const oneOfRequiredGroups = extractSupportedOneOfRequiredGroups(node)
 
@@ -651,16 +684,25 @@ const normalizeOneOf = (node: TV3FormSchemaNode): TV3FormSchemaNode => {
 
   const oneOfBranches = extractSupportedOneOfBranches(node)
 
-  if (!oneOfBranches) {
-    return node
+  if (oneOfBranches) {
+    const { oneOf: _oneOf, ...nodeWithoutOneOf } = node
+
+    return {
+      ...nodeWithoutOneOf,
+      oneOfBranches,
+    }
   }
 
-  const { oneOf: _oneOf, ...nodeWithoutOneOf } = node
+  if (isScalarUnionOneOf(node)) {
+    const { oneOf: _oneOf, ...nodeWithoutOneOf } = node
 
-  return {
-    ...nodeWithoutOneOf,
-    oneOfBranches,
+    return {
+      ...nodeWithoutOneOf,
+      type: 'string',
+    }
   }
+
+  return node
 }
 
 const normalizeSchemaNode = (node: TV3FormSchemaNode): TV3FormSchemaNode => {

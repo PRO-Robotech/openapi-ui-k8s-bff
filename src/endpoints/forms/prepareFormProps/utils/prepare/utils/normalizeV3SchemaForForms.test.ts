@@ -1049,4 +1049,110 @@ describe('normalizeV3SchemaForForms', () => {
       },
     })
   })
+
+  it('lowers Kubernetes IntOrString scalar-union oneOf into a single string leaf', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        port: {
+          oneOf: [{ type: 'string' }, { type: 'integer' }],
+          'x-kubernetes-int-or-string': true,
+          description: 'Number or name of the port to access on the container.',
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        port: {
+          type: 'string',
+          'x-kubernetes-int-or-string': true,
+          description: 'Number or name of the port to access on the container.',
+        },
+      },
+    })
+  })
+
+  it('lowers Kubernetes Quantity scalar-union oneOf inside additionalProperties', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        limits: {
+          type: 'object',
+          additionalProperties: {
+            oneOf: [{ type: 'string' }, { type: 'number' }],
+            description: 'Quantity is a fixed-point representation of a number.',
+          },
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        limits: {
+          type: 'object',
+          additionalProperties: {
+            type: 'string',
+            description: 'Quantity is a fixed-point representation of a number.',
+          },
+        },
+      },
+    })
+  })
+
+  it('preserves scalar-union oneOf when entries carry additional keys beyond type', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        leaf: {
+          oneOf: [
+            { type: 'string', format: 'date' },
+            { type: 'integer' },
+          ],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        leaf: {
+          oneOf: [
+            { type: 'string', format: 'date' },
+            { type: 'integer' },
+          ],
+        },
+      },
+    })
+  })
+
+  it('does not lower scalar-union shape when node has its own properties', () => {
+    const result = normalizeV3SchemaForForms({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          properties: {
+            foo: { type: 'string' },
+          },
+          oneOf: [{ type: 'string' }, { type: 'integer' }],
+        } as any,
+      },
+    })
+
+    expect(result).toEqual({
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          properties: {
+            foo: { type: 'string' },
+          },
+          oneOf: [{ type: 'string' }, { type: 'integer' }],
+        },
+      },
+    })
+  })
 })

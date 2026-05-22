@@ -179,7 +179,7 @@ describe('tryPrepareSchemaFromV3', () => {
                         type: 'object',
                         properties: {
                           mode: {
-                            oneOf: [{ type: 'string' }, { type: 'integer' }],
+                            anyOf: [{ type: 'string' }, { type: 'integer' }],
                           },
                         },
                       },
@@ -199,7 +199,7 @@ describe('tryPrepareSchemaFromV3', () => {
       source: 'v3',
       status: 'unsupported',
       error: 'Unsupported OpenAPI v3 schema for auto-generated form: /apis/demo.example.io/v1/widgets',
-      issues: [{ keyword: 'oneOf', path: ['spec', 'mode'] }],
+      issues: [{ keyword: 'anyOf', path: ['spec', 'mode'] }],
       isNamespaced: false,
       kind: 'Widget',
     })
